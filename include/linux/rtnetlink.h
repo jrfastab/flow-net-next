@@ -6,6 +6,7 @@
 #include <linux/netdevice.h>
 #include <linux/wait.h>
 #include <uapi/linux/rtnetlink.h>
+#include <linux/if_flow.h>
 
 extern int rtnetlink_send(struct sk_buff *skb, struct net *net, u32 pid, u32 group, int echo);
 extern int rtnl_unicast(struct sk_buff *skb, struct net *net, u32 pid);
@@ -85,6 +86,11 @@ extern void __rtnl_unlock(void);
 	} \
 } while(0)
 
+struct hw_flow_mech {
+	const struct hw_flow_tables *tables;
+	const struct hw_flow_headers *headers;
+};
+
 extern int ndo_dflt_fdb_dump(struct sk_buff *skb,
 			     struct netlink_callback *cb,
 			     struct net_device *dev,
@@ -101,5 +107,6 @@ extern int ndo_dflt_fdb_del(struct ndmsg *ndm,
 			    const unsigned char *addr);
 
 extern int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
-				   struct net_device *dev, u16 mode);
+				   struct net_device *dev,
+				   u16 mode, struct hw_flow_mech *f);
 #endif	/* __LINUX_RTNETLINK_H */

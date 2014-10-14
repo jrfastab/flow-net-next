@@ -1147,6 +1147,9 @@ struct net_device_ops {
 							struct net_device *dev,
 							void *priv);
 	int			(*ndo_get_lock_subclass)(struct net_device *dev);
+	int			(*ndo_bridge_getflows)(struct net_device *dev,
+						       int table,
+						       struct sk_buff *skb);
 };
 
 /**
