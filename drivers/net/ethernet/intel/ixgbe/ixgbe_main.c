@@ -7669,7 +7669,7 @@ static int ixgbe_ndo_bridge_setflow(struct net_device *dev, struct nlattr *t)
 	int i;
 
 	/* IFLA_BRIDGE_TABLES */
-	nl_to_sw_tables(&tables, t);
+	//nl_to_sw_tables(&tables, t);
 
 	table = tables.tables;
 
@@ -7748,9 +7748,6 @@ static int ixgbe_ndo_bridge_setlink(struct net_device *dev,
 		__u16 mode;
 		u32 reg = 0;
 
-		if (nla_type(attr) == IFLA_BRIDGE_TABLES)
-			ixgbe_ndo_bridge_setflow(dev, attr);
-
 		if (nla_type(attr) != IFLA_BRIDGE_MODE)
 			continue;
 
@@ -7777,166 +7774,18 @@ static int ixgbe_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
 				    struct net_device *dev,
 				    u32 filter_mask)
 {
-	struct hw_flow_mech mech = {.tables = &ixgbe_tables,
-				  .headers = &ixgbe_headers};
 	struct ixgbe_adapter *adapter = netdev_priv(dev);
 	u16 mode;
 
-/*
 	if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
 		return 0;
-*/
 
 	if (adapter->flags2 & IXGBE_FLAG2_BRIDGE_MODE_VEB)
 		mode = BRIDGE_MODE_VEB;
 	else
 		mode = BRIDGE_MODE_VEPA;
 
-	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode, &mech);
-}
-
-static int ixgbe_ndo_bridge_getflow(struct net_device *dev,
-				    int table, struct sk_buff *skb)
-{
-	struct ixgbe_adapter *adapter = netdev_priv(dev);
-	struct ixgbe_hw *hw = &adapter->hw;
-	struct nlattr *matches, *field, *flows, *actions, *action, *args, *arg;
-
-	if (table == IXGBE_L2_TABLE) {
-		int i, count = 0;
-
-		for (i = 0; i < hw->mac.num_rar_entries; i++) {
-			struct hw_flow_field_ref ref;
-			struct hw_flow_flow flow;
-			struct hw_flow_action action;
-			struct hw_flow_action_arg arg;
-
-			if (!(adapter->mac_table[i].state &
-			      IXGBE_MAC_STATE_IN_USE))
-				continue;
-
-			ref.header = 0;
-			ref.field = 1;
-			ref.type = HW_FLOW_FIELD_REF_ATTR_TYPE_U64;
-
-			memcpy((u8 *)&ref.value_u64,
-			       adapter->mac_table[i].addr, ETH_ALEN);
-
-			flow.uid = count;
-			flow.priority = count;
-			flow.matches = &ref;
-
-			arg.type = HW_FLOW_ACTION_ARG_TYPE_U32;
-			arg.value_u32 = 0;
-
-			action.uid = count;
-			action.args = &arg;
-			flow.actions =  &action;
-
-			hw_flow_flow_to_nl(skb, &flow);
-		}
-	} else if (table == IXGBE_FDIR_TABLE) {
-		struct ixgbe_fdir_filter *rule = NULL;
-		union ixgbe_atr_input *mask = &adapter->fdir_mask;
-		struct hlist_node *node2;
-
-		/* TBD: use flow_table functions ref_to_nl to clean this up
-		 * I don't really like building netlink encodings in drivers
-		 */
-		hlist_for_each_entry_safe(rule, node2,
-					  &adapter->fdir_filter_list, fdir_node) {
-			flows = nla_nest_start(skb, HW_FLOW_FLOW);
-			nla_put_u32(skb, HW_FLOW_FLOW_ATTR_UID, 99);
-			nla_put_u32(skb, HW_FLOW_FLOW_ATTR_PRIORITY, 98);
-			matches = nla_nest_start(skb, HW_FLOW_FLOW_ATTR_MATCHES);
-
-			if (rule->filter.formatted.src_port) {
-				field = nla_nest_start(skb, HW_FLOW_FIELD_REF);
-				nla_put_u32(skb, HW_FLOW_FIELD_REF_ATTR_HEADER, 3);
-				nla_put_u32(skb, HW_FLOW_FIELD_REF_ATTR_FIELD, 0);
-				nla_put_u32(skb, HW_FLOW_FIELD_REF_ATTR_TYPE, HW_FLOW_FIELD_REF_ATTR_TYPE_U16);
-				nla_put_u16(skb, HW_FLOW_FIELD_REF_ATTR_VALUE,
-					    rule->filter.formatted.src_port);
-				nla_put_u16(skb, HW_FLOW_FIELD_REF_ATTR_MASK,
-					    mask->formatted.src_port);
-				nla_nest_end(skb, field);
-			}
-
-			if (rule->filter.formatted.dst_port) {
-				field = nla_nest_start(skb, HW_FLOW_FIELD_REF);
-				nla_put_u32(skb, HW_FLOW_FIELD_REF_ATTR_HEADER, 3);
-				nla_put_u32(skb, HW_FLOW_FIELD_REF_ATTR_FIELD, 1);
-				nla_put_u32(skb, HW_FLOW_FIELD_REF_ATTR_TYPE, HW_FLOW_FIELD_REF_ATTR_TYPE_U16);
-				nla_put_u16(skb, HW_FLOW_FIELD_REF_ATTR_VALUE,
-					    rule->filter.formatted.dst_port);
-				nla_put_u16(skb, HW_FLOW_FIELD_REF_ATTR_MASK,
-					    mask->formatted.dst_port);
-				nla_nest_end(skb, field);
-			}
-
-			if (rule->filter.formatted.src_ip[0]) {
-				field = nla_nest_start(skb, HW_FLOW_FIELD_REF);
-				nla_put_u32(skb, HW_FLOW_FIELD_REF_ATTR_HEADER, 2);
-				nla_put_u32(skb, HW_FLOW_FIELD_REF_ATTR_FIELD, 11);
-				nla_put_u32(skb, HW_FLOW_FIELD_REF_ATTR_TYPE, HW_FLOW_FIELD_REF_ATTR_TYPE_U32);
-				nla_put_u32(skb, HW_FLOW_FIELD_REF_ATTR_VALUE,
-					    rule->filter.formatted.src_ip[0]);
-				nla_put_u32(skb, HW_FLOW_FIELD_REF_ATTR_MASK,
-					    mask->formatted.dst_port);
-				nla_nest_end(skb, field);
-			}
-
-			if (rule->filter.formatted.dst_ip[0]) {
-				field = nla_nest_start(skb, HW_FLOW_FIELD_REF);
-				nla_put_u32(skb, HW_FLOW_FIELD_REF_ATTR_HEADER, 2);
-				nla_put_u32(skb, HW_FLOW_FIELD_REF_ATTR_FIELD, 12);
-				nla_put_u32(skb, HW_FLOW_FIELD_REF_ATTR_TYPE, HW_FLOW_FIELD_REF_ATTR_TYPE_U32);
-				nla_put_u32(skb, HW_FLOW_FIELD_REF_ATTR_VALUE,
-					    rule->filter.formatted.dst_ip[0]);
-				nla_put_u32(skb, HW_FLOW_FIELD_REF_ATTR_MASK,
-					    mask->formatted.dst_ip[0]);
-				nla_nest_end(skb, field);
-			}
-
-			if (rule->filter.formatted.vlan_id) {
-				field = nla_nest_start(skb, HW_FLOW_FIELD_REF);
-				nla_put_u32(skb, HW_FLOW_FIELD_REF_ATTR_HEADER, 1);
-				nla_put_u32(skb, HW_FLOW_FIELD_REF_ATTR_FIELD, 2);
-				nla_put_u32(skb, HW_FLOW_FIELD_REF_ATTR_TYPE, HW_FLOW_FIELD_REF_ATTR_TYPE_U16);
-				nla_put_u16(skb, HW_FLOW_FIELD_REF_ATTR_VALUE,
-					    rule->filter.formatted.vlan_id);
-				nla_put_u16(skb, HW_FLOW_FIELD_REF_ATTR_MASK,
-					    mask->formatted.vlan_id);
-				nla_nest_end(skb, field);
-			}
-
-			nla_nest_end(skb, matches);
-
-			actions = nla_nest_start(skb, HW_FLOW_FLOW_ATTR_ACTIONS);
-			action = nla_nest_start(skb, HW_FLOW_ACTION);
-
-			if (rule->action == IXGBE_FDIR_DROP_QUEUE) {
-				nla_put_u32(skb, HW_FLOW_ACTION_ATTR_UID, 1);
-			} else  {
-				nla_put_u32(skb, HW_FLOW_ACTION_ATTR_UID, 0);
-				args = nla_nest_start(skb, HW_FLOW_ACTION_ATTR_SIGNATURE);
-				arg = nla_nest_start(skb, HW_FLOW_ACTION_ARG);
-				nla_put_u32(skb, HW_FLOW_ACTION_ARG_TYPE,
-					    HW_FLOW_ACTION_ARG_TYPE_U32);
-				nla_put_u32(skb, HW_FLOW_ACTION_ARG_VALUE,
-					    rule->action);
-				nla_nest_end(skb, arg);
-				nla_nest_end(skb, args);
-			}
-
-			nla_nest_end(skb, action);
-			nla_nest_end(skb, actions);
-
-			nla_nest_end(skb, flows);
-		}
-	}
-
-	return 0;
+	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode);
 }
 
 static void *ixgbe_fwd_add(struct net_device *pdev, struct net_device *vdev)
@@ -8031,6 +7880,159 @@ static void ixgbe_fwd_del(struct net_device *pdev, void *priv)
 	kfree(fwd_adapter);
 }
 
+static struct hw_flow_tables *ixgbe_flow_table_get_tables(struct net_device *d)
+{
+	return &ixgbe_tables;
+}
+
+static struct hw_flow_headers *ixgbe_flow_table_get_headers(struct net_device *d)
+{
+	return &ixgbe_headers;
+}
+
+static struct hw_flow_actions *ixgbe_flow_table_get_actions(struct net_device *d)
+{
+	return &ixgbe_actions;
+}
+
+static int ixgbe_flow_table_get_flows(struct sk_buff *skb,
+				      struct net_device *dev,
+				      int table, int min_prio, int max_prio)
+{
+	struct ixgbe_adapter *adapter = netdev_priv(dev);
+	struct ixgbe_hw *hw = &adapter->hw;
+
+	if (table == IXGBE_L2_TABLE) {
+		int i, count = 1;
+
+		for (i = 0; i < hw->mac.num_rar_entries; i++) {
+			struct hw_flow_field_ref ref;
+			struct hw_flow_flow flow;
+			struct hw_flow_action action;
+			struct hw_flow_action_arg arg;
+
+			if (!(adapter->mac_table[i].state &
+			      IXGBE_MAC_STATE_IN_USE))
+				continue;
+
+			ref.header = 1;
+			ref.field = 2;
+			ref.type = HW_FLOW_FIELD_REF_ATTR_TYPE_U64;
+
+			memcpy((u8 *)&ref.value_u64,
+			       adapter->mac_table[i].addr, ETH_ALEN);
+
+			flow.table_id = IXGBE_L2_TABLE;
+			flow.uid = count;
+			flow.priority = count;
+			flow.matches = &ref;
+
+			arg.type = HW_FLOW_ACTION_ARG_TYPE_U32;
+			memset(arg.name, 0, sizeof(arg.name));
+			arg.value_u32 = 0;
+
+			action.uid = 1;
+			action.args = &arg;
+			flow.actions =  &action;
+
+			hw_flow_flow_to_nl(skb, &flow, 1, 1, 1);
+		}
+	} else if (table == IXGBE_FDIR_TABLE) {
+		struct ixgbe_fdir_filter *rule = NULL;
+		union ixgbe_atr_input *mask = &adapter->fdir_mask;
+		struct hlist_node *node2;
+
+		/* TBD: use flow_table functions ref_to_nl to clean this up
+		 * I don't really like building netlink encodings in drivers
+		 */
+		hlist_for_each_entry_safe(rule, node2,
+					  &adapter->fdir_filter_list, fdir_node) {
+			struct hw_flow_field_ref ref[5];
+			struct hw_flow_flow flow;
+			struct hw_flow_action action;
+			struct hw_flow_action_arg arg;
+
+			int acnt = 0, count = 0, argcnt = 0;
+ 
+			memset(&ref, 0, sizeof(ref));
+			memset(&flow, 0, sizeof(flow));
+			memset(&action, 0, sizeof(action));
+			memset(&arg, 0, sizeof(arg));
+
+			flow.table_id = IXGBE_FDIR_TABLE;
+			flow.uid = 99;
+			flow.priority = 98;
+			
+			/* TBD: generate defines so header/fields/actions are
+			 * not magic values
+			 */
+			if (rule->filter.formatted.src_port) {
+				ref[count].header = 4; 
+				ref[count].field = 1;
+				ref[count].type = HW_FLOW_FIELD_REF_ATTR_TYPE_U16;
+				ref[count].value_u16 = rule->filter.formatted.src_port;
+				ref[count].mask_u16 = mask->formatted.src_port;
+				count++;
+			}
+
+			if (rule->filter.formatted.dst_port) {
+				ref[count].header = 4; 
+				ref[count].field = 2;
+				ref[count].type = HW_FLOW_FIELD_REF_ATTR_TYPE_U16;
+				ref[count].value_u16 = rule->filter.formatted.dst_port;
+				ref[count].mask_u16 = mask->formatted.dst_port;
+				count++;
+			}
+
+			if (rule->filter.formatted.src_ip[0]) {
+				ref[count].header = 3; 
+				ref[count].field = 12;
+				ref[count].type = HW_FLOW_FIELD_REF_ATTR_TYPE_U32;
+				ref[count].value_u32 = rule->filter.formatted.src_ip[0];
+				ref[count].mask_u32 = mask->formatted.src_ip[0];
+				count++;
+			}
+
+			if (rule->filter.formatted.dst_ip[0]) {
+				ref[count].header = 3; 
+				ref[count].field = 13;
+				ref[count].type = HW_FLOW_FIELD_REF_ATTR_TYPE_U32;
+				ref[count].value_u32 = rule->filter.formatted.dst_ip[0];
+				ref[count].mask_u32 = mask->formatted.dst_ip[0];
+				count++;
+			}
+
+			if (rule->filter.formatted.vlan_id) {
+				ref[count].header = 2; 
+				ref[count].field = 3;
+				ref[count].type = HW_FLOW_FIELD_REF_ATTR_TYPE_U16;
+				ref[count].value_u16 = rule->filter.formatted.vlan_id;
+				ref[count].mask_u16 = mask->formatted.vlan_id;
+				count++;
+			}
+
+			if (rule->action == IXGBE_FDIR_DROP_QUEUE) {
+				action.uid = 3;
+			} else  {
+				arg.type = HW_FLOW_ACTION_ARG_TYPE_U32;
+				arg.value_u32 = rule->action;
+
+				action.uid = 2;
+				action.args = &arg;
+				flow.actions =  &action;
+				acnt = argcnt = 1;
+			}
+
+			flow.matches = ref;
+			flow.actions =  &action;
+
+			hw_flow_flow_to_nl(skb, &flow, count, acnt, argcnt);
+		}
+	}
+
+	return 0;
+}
+
 static const struct net_device_ops ixgbe_netdev_ops = {
 	.ndo_open		= ixgbe_open,
 	.ndo_stop		= ixgbe_close,
@@ -8075,7 +8077,11 @@ static const struct net_device_ops ixgbe_netdev_ops = {
 	.ndo_bridge_getlink	= ixgbe_ndo_bridge_getlink,
 	.ndo_dfwd_add_station	= ixgbe_fwd_add,
 	.ndo_dfwd_del_station	= ixgbe_fwd_del,
-	.ndo_bridge_getflows	= ixgbe_ndo_bridge_getflow,
+
+	.ndo_flow_table_get_tables = ixgbe_flow_table_get_tables,
+	.ndo_flow_table_get_headers = ixgbe_flow_table_get_headers,
+	.ndo_flow_table_get_actions = ixgbe_flow_table_get_actions,
+	.ndo_flow_table_get_flows = ixgbe_flow_table_get_flows,
 };
 
 /**

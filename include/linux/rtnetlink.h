@@ -86,11 +86,6 @@ extern void __rtnl_unlock(void);
 	} \
 } while(0)
 
-struct hw_flow_mech {
-	const struct hw_flow_tables *tables;
-	const struct hw_flow_headers *headers;
-};
-
 extern int ndo_dflt_fdb_dump(struct sk_buff *skb,
 			     struct netlink_callback *cb,
 			     struct net_device *dev,
@@ -108,5 +103,5 @@ extern int ndo_dflt_fdb_del(struct ndmsg *ndm,
 
 extern int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
 				   struct net_device *dev,
-				   u16 mode, struct hw_flow_mech *f);
+				   u16 mode);
 #endif	/* __LINUX_RTNETLINK_H */

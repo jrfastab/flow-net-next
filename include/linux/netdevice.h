@@ -1150,6 +1150,12 @@ struct net_device_ops {
 	int			(*ndo_bridge_getflows)(struct net_device *dev,
 						       int table,
 						       struct sk_buff *skb);
+	struct hw_flow_tables  *(*ndo_flow_table_get_tables)(struct net_device *dev);
+	struct hw_flow_headers *(*ndo_flow_table_get_headers)(struct net_device *dev);
+	struct hw_flow_actions *(*ndo_flow_table_get_actions)(struct net_device *dev);
+	int		        (*ndo_flow_table_get_flows)(struct sk_buff *skb,
+							    struct net_device *dev,
+							    int table, int min, int max);
 };
 
 /**

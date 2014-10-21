@@ -2629,14 +2629,13 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
 
 int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
 			    struct net_device *dev,
-			    u16 mode, struct hw_flow_mech *flow)
+			    u16 mode)
 {
 	struct nlmsghdr *nlh;
 	struct ifinfomsg *ifm;
 	struct nlattr *br_afspec;
 	u8 operstate = netif_running(dev) ? dev->operstate : IF_OPER_DOWN;
 	struct net_device *br_dev = netdev_master_upper_dev_get(dev);
-	int err;
 
 	nlh = nlmsg_put(skb, pid, seq, RTM_NEWLINK, sizeof(*ifm), NLM_F_MULTI);
 	if (nlh == NULL)
@@ -2670,20 +2669,6 @@ int ndo_dflt_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
 	    nla_put_u16(skb, IFLA_BRIDGE_MODE, mode)) {
 		nla_nest_cancel(skb, br_afspec);
 		goto nla_put_failure;
-	}
-
-	if (flow->tables) {
-		if (flow->tables) {
-			err = hw_flow_tables_to_nl(dev, skb, flow->tables);
-			if (err)
-				goto nla_put_failure;
-		}
-
-		if (flow->headers) {
-			err = hw_flow_headers_to_nl(skb, flow->headers);
-			if (err)
-				goto nla_put_failure;
-		}
 	}
 
 	nla_nest_end(skb, br_afspec);
@@ -2749,8 +2734,7 @@ static inline size_t bridge_nlmsg_size(void)
 		+ nla_total_size(sizeof(u8))	/* IFLA_PROTINFO */
 		+ nla_total_size(sizeof(struct nlattr))	/* IFLA_AF_SPEC */
 		+ nla_total_size(sizeof(u16))	/* IFLA_BRIDGE_FLAGS */
-		+ nla_total_size(sizeof(u16))	/* IFLA_BRIDGE_MODE */
-		+ 1400;				/* Hack out flow codes */
+		+ nla_total_size(sizeof(u16));	/* IFLA_BRIDGE_MODE */
 }
 
 static int rtnl_bridge_notify(struct net_device *dev, u16 flags)

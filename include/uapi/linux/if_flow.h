@@ -26,10 +26,10 @@
  * attributes need to be provided, HW_FLOW_TABLE_ATTR_UID and at least
  * one complete HW_FLOW_FLOW attribute.
  *
- * [BRIDGE_TABLES] (TBD may move to different container at top level)
- *
- *   [HW_FLOW_TABLES_SIZE]
- *   [HW_FLOW_TABLES_TABLE]
+ * 
+ * [FLOW_TABLE_IDENTIFIER_TYPE]
+ * [FLOW_TABLE_IDENTIFIER]
+ * [FLOW_TABLE_TABLES]
  *     [HW_FLOW_TABLE]
  *       [HW_FLOW_TABLE_ATTR_NAME]
  *       [HW_FLOW_TABLE_ATTR_UID]
@@ -50,15 +50,73 @@
  *	     [HW_FLOW_ACTION_ATTR_SIGNATURE]
  *	       	 [HW_FLOW_ACTION_ARG]
  *	         	[HW_FLOW_ACTION_ARG_NAME]
- *        	[HW_FLOW_ACTION_ARG_TYPE]
+ *        		[HW_FLOW_ACTION_ARG_TYPE]
  *	         	[HW_FLOW_ACTION_ARG_VALUE]
  *	         [HW_FLOW_ACTION_ARG]
  *	           [...]
  *	   [HW_FLOW_ACTION]
  *	     [...]
  *	   [...]
- *	 [HW_FLOW_TABLE_ATTR_FLOWS]
- *	   [HW_FLOW_FLOW]
+ *     [HW_FLOW_TABLE]
+ *       [...]
+ *
+ * Header definitions used to define headers with user friendly
+ * names.
+ *
+ * [FLOW_TABLE_HEADERS]
+ *   [HW_FLOW_HEADER]
+ *   	[HW_FLOW_HEADER_ATTR_NAME]
+ *   	[HW_FLOW_HEADER_ATTR_UID]
+ *   	[HW_FLOW_HEADER_ATTR_FIELDS]
+ *	  [HW_FLOW_HEADER_ATTR_FIELD]
+ *	    [HW_FLOW_FIELD_ATTR_NAME]
+ *	    [HW_FLOW_FIELD_ATTR_UID]
+ *	    [HW_FLOW_FIELD_ATTR_BITWIDTH]
+ *	  [HW_FLOW_HEADER_ATTR_FIELD]
+ *	    [...]
+ *	  [...]
+ *   [HW_FLOW_HEADER]
+ *      [...]
+ *   [...]
+ *
+ * Action definitions supported by tables
+ * 
+ * [FLOW_TABLE_ACTIONS]
+ *   [HW_FLOW_TABLE_ATTR_ACTIONS]
+ *	[HW_FLOW_ACTION]
+ *	[HW_FLOW_ACTION_ATTR_NAME]
+ *	[HW_FLOW_ACTION_ATTR_UID]
+ *	[HW_FLOW_ACTION_ATTR_SIGNATURE]
+ *	       	 [HW_FLOW_ACTION_ARG]
+ *	         	[HW_FLOW_ACTION_ARG_NAME]
+ *        		[HW_FLOW_ACTION_ARG_TYPE]
+ *	         	[HW_FLOW_ACTION_ARG_VALUE]
+ *	         [HW_FLOW_ACTION_ARG]
+ *	           [...]
+ *	   [HW_FLOW_ACTION]
+ *	     [...]
+ *
+ * Parser definition used to unambiguously define match headers.
+ *
+ * [FLOW_TABLE_PARSE_GRAPH]
+ *
+ * Primitive Type descriptions
+ *
+ * [FLOW_TABLE_TABLE_GRAPH]
+ *
+ * Get Flow <REQUEST> description
+ *
+ * [FLOW_TABLE_FLOWS]
+ *   [FLOW_TABLE_FLOWS_TABLE]
+ *   [FLOW_TABLE_FLOWS_MINPRIO]
+ *   [FLOW_TABLE_FLOWS_MAXPRIO]
+ *
+ * Get Flow <REPLY> description
+ *
+ * [FLOW_TABLE_FLOWS]
+ *   [FLOW_TABLE_FLOWS_TABLE]
+ *   [FLOW_TABLE_FLOWS_FLOWS]
+ *      [HW_FLOW_FLOW]
  *	     [HW_FLOW_FLOW_ATTR_UID]
  *	     [HW_FLOW_FLOW_ATTR_PRIORITY]
  *	     [HW_FLOW_FLOW_ATTR_MATCHES]
@@ -73,7 +131,6 @@
  *	       [...]
  *	     [HW_FLOW_FLOW_ATTR_ACTIONS]
  *	       [HW_FLOW_ACTION]
- *	         [HW_FLOW_ACTION_ATTR_NAME]
  *	         [HW_FLOW_ACTION_ATTR_UID]
  *	         [HW_FLOW_ACTION_ATTR_SIGNATURE]
  *	       	   [HW_FLOW_ACTION_ARG]
@@ -84,33 +141,6 @@
  *	       [HW_FLOW_ACTION]
  *	         [..]
  *	       [...]
- *     [HW_FLOW_TABLE]
- *       [...]
- *
- * Header definitions used to define headers with user friendly
- * names.
- *
- * [IFLA_HW_FLOW_HEADERS]
- *   [HW_FLOW_HEADER]
- *   	[HW_FLOW_HEADER_ATTR_NAME]
- *   	[HW_FLOW_HEADER_ATTR_UID]
- *   	[HW_FLOW_HEADER_ATTR_FIELDS]
- *	  [HW_FLOW_HEADER_ATTR_FIELDS]
- *	    [HW_FLOW_FIELD_ATTR_NAME]
- *	    [HW_FLOW_FIELD_ATTR_UID]
- *	    [HW_FLOW_FIELD_ATTR_BITWIDTH]
- *	  [HW_FLOW_HEADER_ATTR_FIELDS]
- *	    [...]
- *	  [...]
- *   [HW_FLOW_HEADER]
- *      [...]
- *   [...]
- *
- * Parser definition used to unambiguously define match headers.
- * (tbd)
- *
- * Primitive Type descriptions
- * (tbd)
  *
  * Add Flow descriptions
  *
@@ -216,7 +246,7 @@ enum {
  * @brief null terminated set of hw_flow_header definitions
  */
 struct hw_flow_headers {
-	const struct hw_flow_header **hw_flow_headers;
+	struct hw_flow_header **hw_flow_headers;
 };
 
 #if 0
@@ -312,6 +342,8 @@ enum {
 };
 #define HW_FLOW_ACTION_ARG_MAX (__HW_FLOW_ACTION_ARG_MAX - 1)
 
+typedef int hw_flow_action_ref;
+
 /**
  * @struct hw_flow_action
  * @brief a description of a endpoint defined action
@@ -322,7 +354,7 @@ enum {
  */
 struct hw_flow_action {
 	char name[IFNAMSIZ];
-	int uid;
+	hw_flow_action_ref uid;
 	struct hw_flow_action_arg *args;
 };
 
@@ -348,9 +380,8 @@ enum {
  *
  * @hw_flow_actions null terminated list of actions
  */
-struct hw_flow_action_set {
-	int action_sz;
-	struct hw_flow_action *hw_flow_actions;
+struct hw_flow_actions {
+	struct hw_flow_action **actions;
 };
 
 enum {
@@ -372,6 +403,7 @@ enum {
  * Flows must match all entries in match set.
  */
 struct hw_flow_flow {
+	int table_id;
 	int uid;
 	int priority;
 	struct hw_flow_field_ref *matches;
@@ -386,7 +418,18 @@ enum {
 #define HW_FLOW_FLOW_MAX (__HW_FLOW_FLOW_MAX - 1)
 
 enum {
+	FLOW_TABLE_FLOWS_UNSPEC,
+	FLOW_TABLE_FLOWS_TABLE,
+	FLOW_TABLE_FLOWS_MINPRIO,
+	FLOW_TABLE_FLOWS_MAXPRIO,
+	FLOW_TABLE_FLOWS_FLOWS,
+	__FLOW_TABLE_FLOWS_MAX,
+};
+#define FLOW_TABLE_FLOWS_MAX (__FLOW_TABLE_FLOWS_MAX - 1)
+
+enum {
 	HW_FLOW_FLOW_ATTR_UNSPEC,
+	HW_FLOW_FLOW_ATTR_TABLE,
 	HW_FLOW_FLOW_ATTR_UID,
 	HW_FLOW_FLOW_ATTR_PRIORITY,
 	HW_FLOW_FLOW_ATTR_MATCHES,
@@ -412,7 +455,7 @@ struct hw_flow_table {
 	int source;
 	int size;
 	struct hw_flow_field_ref *matches;
-	struct hw_flow_action *actions;
+	hw_flow_action_ref *actions;
 	struct hw_flow_flow *flows;
 };
 
@@ -447,14 +490,6 @@ struct hw_flow_tables {
 	int table_sz;
 	struct hw_flow_table *tables;
 };
-
-enum {
-	HW_FLOW_TABLES_UNSPEC,
-	HW_FLOW_TABLES_SIZE,
-	HW_FLOW_TABLES_TABLE,
-	__HW_FLOW_TABLES_MAX,
-};
-#define HW_FLOW_TABLES_MAX (__HW_FLOW_TABLES_MAX - 1)
 
 struct hw_flow_offset {
 	int offset;
@@ -589,5 +624,38 @@ enum {
 };
 #define HW_TABLE_GRAPH_MAX (__HW_TABLE_GRAPH_MAX - 1)
 
+enum {
+	FLOW_TABLE_IDENTIFIER_IFINDEX, /* net_device ifindex */
+};
 
+enum {
+	FLOW_TABLE_UNSPEC,
+	FLOW_TABLE_IDENTIFIER_TYPE,
+	FLOW_TABLE_IDENTIFIER,
+
+	FLOW_TABLE_TABLES,
+	FLOW_TABLE_HEADERS,
+	FLOW_TABLE_ACTIONS,
+	FLOW_TABLE_PARSE_GRAPH,
+	FLOW_TABLE_TABLE_GRAPH,
+	FLOW_TABLE_FLOWS,
+
+	__FLOW_TABLE_MAX,
+	FLOW_TABLE_MAX = (__FLOW_TABLE_MAX - 1),
+};
+
+enum {
+	FLOW_TABLE_CMD_GET_TABLES,
+	FLOW_TABLE_CMD_GET_HEADERS,
+	FLOW_TABLE_CMD_GET_ACTIONS,
+	FLOW_TABLE_CMD_GET_PARSE_GRAPH,
+	FLOW_TABLE_CMD_GET_TABLE_GRAPH,
+	FLOW_TABLE_CMD_GET_FLOWS,
+
+	FLOW_TABLE_CMD_FLOW_INSERT,
+	FLOW_TABLE_CMD_FLOW_REMOVE,
+};
+
+#define FLOW_TABLE_GENL_NAME "flow_table"
+#define FLOW_TABLE_GENL_VERSION 0x1
 #endif /* _UAPI_LINUX_IF_FLOW */
