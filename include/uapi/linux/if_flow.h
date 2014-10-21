@@ -559,8 +559,35 @@ enum {
 	HW_FLOW_PARSER_UNSPEC,
 	HW_FLOW_PARSER_NODE_COUNT,
 	HW_FLOW_PARSER_NODES,
-	HW_FLOW_PARSER_MAX,
+	__HW_FLOW_PARSER_MAX,
 };
 #define HW_FLOW_PARSER_MAX (__HW_FLOW_PARSER_MAX - 1)
+
+struct hw_table_graph_node {
+	int uid;
+	struct hw_flow_jump_table *jump;
+};
+
+enum {
+	HW_TABLE_GRAPH_NODE_UNSPEC,
+	HW_TABLE_GRAPH_NODE_UID,
+	HW_TABLE_GRAPH_NODE_JUMP,
+	__HW_TABLE_GRAPH_NODE_MAX,
+};
+#define HW_TABLE_GRAPH_NODE_MAX (__HW_TABLE_GRAPH_NODE_MAX - 1)
+
+struct hw_table_graph_nodes {
+	int node_count;
+	struct hw_table_graph_node **nodes;
+};
+
+enum {
+	HW_TABLE_GRAPH_UNSPEC,
+	HW_TABLE_GRAPH_NODE_COUNT,
+	HW_TABLE_GRAPH_NODES,
+	__HW_TABLE_GRAPH_MAX,
+};
+#define HW_TABLE_GRAPH_MAX (__HW_TABLE_GRAPH_MAX - 1)
+
 
 #endif /* _UAPI_LINUX_IF_FLOW */
