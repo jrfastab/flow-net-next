@@ -31,25 +31,29 @@ const char *flow_table_arg_type_str[__HW_FLOW_ACTION_ARG_TYPE_VAL_MAX] = {
 	"u64",
 };
 
-static const struct nla_policy hw_flow_matches_policy[HW_FLOW_FIELD_REF_MAX + 1] = {
+static const
+struct nla_policy hw_flow_matches_policy[HW_FLOW_FIELD_REF_MAX + 1] = {
 	[HW_FLOW_FIELD_REF] = { .type = NLA_NESTED },
 };
 
-static const struct nla_policy hw_flow_flow_policy[HW_FLOW_FLOW_ATTR_MAX + 1] = {
+static const
+struct nla_policy hw_flow_flow_policy[HW_FLOW_FLOW_ATTR_MAX + 1] = {
 	[HW_FLOW_FLOW_ATTR_UID]		= { .type = NLA_U32 },
 	[HW_FLOW_FLOW_ATTR_PRIORITY]	= { .type = NLA_U32 },
 	[HW_FLOW_FLOW_ATTR_MATCHES]	= { .type = NLA_NESTED },
 	[HW_FLOW_FLOW_ATTR_ACTIONS]	= { .type = NLA_NESTED },
 };
 
-static const struct nla_policy hw_flow_table_policy[HW_FLOW_TABLE_ATTR_MAX + 1] = {
-	[HW_FLOW_TABLE_ATTR_NAME]	   = { .type = NLA_STRING, .len = IFNAMSIZ-1 },
-	[HW_FLOW_TABLE_ATTR_UID]	   = { .type = NLA_U32 },
-	[HW_FLOW_TABLE_ATTR_SOURCE]  = { .type = NLA_U32 },
-	[HW_FLOW_TABLE_ATTR_SIZE]	   = { .type = NLA_U32 },
-	[HW_FLOW_TABLE_ATTR_MATCHES] = { .type = NLA_NESTED },
-	[HW_FLOW_TABLE_ATTR_ACTIONS] = { .type = NLA_NESTED },
-	[HW_FLOW_TABLE_ATTR_FLOWS]   = { .type = NLA_NESTED },
+static const
+struct nla_policy hw_flow_table_policy[HW_FLOW_TABLE_ATTR_MAX + 1] = {
+	[HW_FLOW_TABLE_ATTR_NAME]	= { .type = NLA_STRING,
+					    .len = IFNAMSIZ-1 },
+	[HW_FLOW_TABLE_ATTR_UID]	= { .type = NLA_U32 },
+	[HW_FLOW_TABLE_ATTR_SOURCE]	= { .type = NLA_U32 },
+	[HW_FLOW_TABLE_ATTR_SIZE]	= { .type = NLA_U32 },
+	[HW_FLOW_TABLE_ATTR_MATCHES]	= { .type = NLA_NESTED },
+	[HW_FLOW_TABLE_ATTR_ACTIONS]	= { .type = NLA_NESTED },
+	[HW_FLOW_TABLE_ATTR_FLOWS]	= { .type = NLA_NESTED },
 };
 
 static

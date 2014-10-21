@@ -514,60 +514,30 @@ enum {
 };
 #define HW_FLOW_PARSER_NODE_HDRS_MAX (__HW_FLOW_PARSER_NODE_HDRS_MAX - 1)
 
-struct hw_flow_jump_table_switch_case {
-	int node_ref;
-	int error;
-};
-
-enum {
-	HW_FLOW_JUMP_TABLE_SWITCH_CASES_UNSPEC,
-	HW_FLOW_JUMP_TABLE_SWITCH_CASES_NODE_REF,
-	HW_FLOW_JUMP_TABLE_SWITCH_CASES_ERROR,
-	__HW_FLOW_JUMP_TABLE_SWITCH_CASES_MAX,
-};
-#define HW_FLOW_JUMP_TABLE_SWITCH_CASES_MAX (__HW_FLOW_JUMP_TABLE_SWITCH_CASES_MAX - 1)
-
-struct hw_flow_jump_table_switch {
-	struct hw_flow_field_ref ref;
-	struct hw_flow_jump_table_switch_case *cases;
-};
-
-enum {
-	HW_FLOW_JUMP_TABLE_SWITCH_UNSPEC,
-	HW_FLOW_JUMP_TABLE_SWITCH_REF,
-	HW_FLOW_JUMP_TABLE_SWITCH_CASE,
-	__HW_FLOW_JUMP_TABLE_SWITCH_MAX,
-};
-
-union hw_flow_jump_table_un {
-	int node_ref;
-	int error;
-	struct hw_flow_jump_table_switch c;
-};
-
-enum hw_flow_jump_table_type {
-	HW_FLOW_JUMP_TYPE_PARSER_REF,
-	HW_FLOW_JUMP_TYPE_PARSER_SWITCH,
-	HW_FLOW_JUMP_TYPE_PARSER_ERROR,
-};
-
 struct hw_flow_jump_table {
-	enum hw_flow_jump_table_type type;	
-	union hw_flow_jump_table_un table;
+	struct hw_flow_field_ref field;
+	int node; /* <0 is a parser error */
 };
+
+#define HW_FLOW_JUMP_TABLE_DONE	-1
 
 enum {
-	HW_FLOW_PARSER_NODE_JUMP_UNSPEC,
-	HW_FLOW_PARSER_NODE_JUMP_TYPE,
-	__HW_FLOW_PARSER_NODE_JUMP_MAX,
+	HW_FLOW_JUMP_TABLE_UNSPEC,
+	HW_FLOW_JUMP_TABLE_FIELD,
+	HW_FLOW_JUMP_TABLE_NODE,
+	__HW_FLOW_JUMP_TABLE_MAX,
 };
-#define HW_FLOW_PARSER_NODE_JUMP_MAX (__HW_FLOW_PARSER_NODE_JUMP_MAX - 1)
 
+/* hw_flow_parser_node
+ * @hw_flwo_header_ref : identify the hdrs that are parsed in this node
+ * @hw_flow_set : identify if any metadata fields are set by parser
+ * @hw_flow_jump_table : give a case jump statement
+ */
 struct hw_flow_parser_node {
 	int uid;
-	struct hw_flow_header_ref *hdrs;
+	hw_flow_header_ref *hdrs;
 	struct hw_flow_set *sets;
-	struct hw_flow_jump_table jump;
+	struct hw_flow_jump_table *jump;
 };
 
 enum {
@@ -582,7 +552,7 @@ enum {
 
 struct hw_flow_parser_nodes {
 	int node_count;
-	struct hw_flow_parser_node *nodes;
+	struct hw_flow_parser_node **nodes;
 };
 
 enum {

@@ -302,4 +302,131 @@ struct hw_flow_headers ixgbe_headers =
 	.hw_flow_headers = ixgbe_header_list,
 };
 
+/* Maybe headers could be inferred from jump table? */
+hw_flow_header_ref ixgbe_ethernet_headers[1] = {0};
+struct hw_flow_jump_table ixgbe_ethernet_jump[2] =
+{
+	{
+		.field = {
+		   .header = 0,
+		   .field = 2,
+		   .type = HW_FLOW_FIELD_REF_ATTR_TYPE_U16,
+		   .value_u16 = 0x8100,
+		},
+		.node = 2,
+	},
+	{
+		.field = {
+		   .header = 0,
+		   .field = 2,
+		   .type = HW_FLOW_FIELD_REF_ATTR_TYPE_U16,
+		   .value_u16 = 0x0800,
+		},
+		.node = 3,
+	},
+};
+
+struct hw_flow_parser_node ixgbe_parse_node_ethernet = {
+	.uid = 1,
+	.hdrs = ixgbe_ethernet_headers,
+	.sets = NULL,
+	.jump = ixgbe_ethernet_jump,
+};
+
+hw_flow_header_ref ixgbe_vlan_headers[1] = {1};
+struct hw_flow_jump_table ixgbe_vlan_outer_jump[2] = {
+	{
+		.field = {
+		   .header = 0,
+		   .field = 2,
+		   .type = HW_FLOW_FIELD_REF_ATTR_TYPE_U16,
+		   .value_u16 = 0x8100,
+		},
+		.node = 3,
+	},
+	{
+		.field = {
+		   .header = 0,
+		   .field = 2,
+		   .type = HW_FLOW_FIELD_REF_ATTR_TYPE_U16,
+		   .value_u16 = 0x0800,
+		},
+		.node = 4,
+	},
+};
+
+struct hw_flow_jump_table ixgbe_vlan_inner_jump[1] = {
+	{
+		.field = {
+		   .header = 0,
+		   .field = 2,
+		   .type = HW_FLOW_FIELD_REF_ATTR_TYPE_U16,
+		   .value_u16 = 0x0800,
+		},
+		.node = 4,
+	},
+};
+
+struct hw_flow_parser_node ixgbe_parse_node_vlan_outer = {
+	.uid = 2,
+	.hdrs = ixgbe_vlan_headers,
+	.sets = NULL,
+	.jump = ixgbe_vlan_outer_jump,
+};
+
+struct hw_flow_parser_node ixgbe_parse_node_vlan_inner = {
+	.uid = 3,
+	.hdrs = ixgbe_vlan_headers,
+	.sets = NULL,
+	.jump = ixgbe_vlan_inner_jump,
+};
+
+hw_flow_header_ref ixgbe_ip_headers[1] = {2};
+struct hw_flow_jump_table ixgbe_ip_jump[1] = {
+	{
+		.field = {
+		   .header = 2,
+		   .field = 9,
+		   .type = HW_FLOW_FIELD_REF_ATTR_TYPE_U8,
+		   .value_u8 = 0x06,
+		},
+		.node = 5,
+	},
+};
+
+struct hw_flow_parser_node ixgbe_parse_node_ip = {
+	.uid = 4,
+	.hdrs = ixgbe_ip_headers,
+	.sets = NULL,
+	.jump = ixgbe_ip_jump,	
+};
+
+hw_flow_header_ref ixgbe_tcp_headers[1] = {3};
+struct hw_flow_jump_table ixgbe_tcp_jump[1] = {
+	{
+		.field = {0},
+		.node = HW_FLOW_JUMP_TABLE_DONE,
+	},
+};
+
+struct hw_flow_parser_node ixgbe_parse_node_tcp = {
+	.uid = 5,
+	.hdrs = ixgbe_tcp_headers,
+	.sets = NULL,
+	.jump = ixgbe_tcp_jump,	
+};
+
+struct hw_flow_parser_node *ixgbe_parse_graph_nodes[5] = {
+	&ixgbe_parse_node_ethernet,
+	&ixgbe_parse_node_vlan_outer,
+	&ixgbe_parse_node_vlan_inner,
+	&ixgbe_parse_node_ip,
+	&ixgbe_parse_node_tcp,
+};
+
+struct hw_flow_parser_nodes ixgbe_parse_graph = {
+	.node_count = 5,
+	.nodes = ixgbe_parse_graph_nodes,
+};
+
 #endif /*_IXGBE_PIPELINE_H_*/
