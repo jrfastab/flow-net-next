@@ -102,7 +102,20 @@
  *
  * Primitive Type descriptions
  *
+ *
+ * Graph of Table topology 
+ *
  * [FLOW_TABLE_TABLE_GRAPH]
+ *   [HW_TABLE_GRAPH_NODE]
+ *	[HW_TABLE_GRAPH_NODE_UID]
+ *	[HW_TABLE_GRAPH_NODE_JUMP]
+ *	  [HW_FLOW_JUMP_TABLE_ENTRY]
+ *	    [HW_FLOW_JUMP_TABLE_FIELD]
+ *	    [HW_FLOW_JUMP_TABLE_NODE]
+ *	  [HW_FLOW_JUMP_TABLE_ENTRY]
+ *	    [...]
+ *   [HW_TABLE_GRAPH_NODE]
+ *	[..]
  *
  * Get Flow <REQUEST> description
  *
@@ -557,11 +570,18 @@ struct hw_flow_jump_table {
 #define HW_FLOW_JUMP_TABLE_DONE	-1
 
 enum {
+	HW_FLOW_JUMP_TABLE_ENTRY_UNSPEC,
+	HW_FLOW_JUMP_TABLE_ENTRY,
+	__HW_FLOW_JUMP_TABLE_ENTRY_MAX,
+};
+	
+enum {
 	HW_FLOW_JUMP_TABLE_UNSPEC,
 	HW_FLOW_JUMP_TABLE_FIELD,
 	HW_FLOW_JUMP_TABLE_NODE,
 	__HW_FLOW_JUMP_TABLE_MAX,
 };
+#define HW_FLOW_JUMP_TABLE_MAX (__HW_FLOW_JUMP_TABLE_MAX - 1)
 
 /* hw_flow_parser_node
  * @hw_flwo_header_ref : identify the hdrs that are parsed in this node
@@ -618,8 +638,7 @@ struct hw_table_graph_nodes {
 
 enum {
 	HW_TABLE_GRAPH_UNSPEC,
-	HW_TABLE_GRAPH_NODE_COUNT,
-	HW_TABLE_GRAPH_NODES,
+	HW_TABLE_GRAPH_NODE,
 	__HW_TABLE_GRAPH_MAX,
 };
 #define HW_TABLE_GRAPH_MAX (__HW_TABLE_GRAPH_MAX - 1)

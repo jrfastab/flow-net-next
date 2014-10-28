@@ -960,44 +960,64 @@ static int flow_table_cmd_get_parse_graph(struct sk_buff *skb,
 static int
 hw_flow_table_graph_to_nl(struct sk_buff *skb, struct hw_table_graph_nodes *g)
 {
-	struct nlattr *nodes, *jump, *field;
+	struct nlattr *nodes, *node, *jump, *jump_node, *field;
 	struct hw_table_graph_node *n;
-	int err;
+	int err, i = 0;
 
-	nodes = nla_nest_start(skb, HW_TABLE_GRAPH_NODES);
+	nodes = nla_nest_start(skb, FLOW_TABLE_TABLE_GRAPH);
 	if (!nodes)
 		return -EMSGSIZE;
 
-	for (n = g->nodes[0]; n->uid; n++) {
+	for (n = g->nodes[i]; n->uid; n = g->nodes[++i]) {
 		struct hw_flow_jump_table *j;
 
-		if (nla_put_u32(skb, HW_TABLE_GRAPH_NODE_UID, n->uid))
+		node = nla_nest_start(skb, HW_TABLE_GRAPH_NODE);
+		if (!node)
 			goto out;
+
+		if (nla_put_u32(skb, HW_TABLE_GRAPH_NODE_UID, n->uid))
+			goto node_put_failure;
 
 		jump = nla_nest_start(skb, HW_TABLE_GRAPH_NODE_JUMP);
 		if (!jump)
 			goto out;	
 
 		for (j = &n->jump[0]; j->node; j++) {
-			if (nla_put_u32(skb, HW_TABLE_GRAPH_NODE_UID, j->node))
+			jump_node = nla_nest_start(skb, HW_FLOW_JUMP_TABLE_ENTRY);
+			if (!jump_node)
 				goto jump_put_failure;
 
-			field = nla_nest_start(skb, HW_TABLE_GRAPH_NODE_JUMP);
+			printk("%s: add jump node\n", __func__);
+
+			if (nla_put_u32(skb, HW_FLOW_JUMP_TABLE_NODE, j->node)) {
+				printk("%s: table node failed\n", __func__);
+				goto jump_node_put_failure;
+			}
+
+			field = nla_nest_start(skb, HW_FLOW_JUMP_TABLE_FIELD);
 			err = hw_flow_field_ref_to_nl(skb, &j->field);
-			if (err)
+			if (err) {
+				printk("%s: warning field ref failed\n", __func__);
 				goto field_put_failure;
+			}
 			nla_nest_end(skb, field);
+			nla_nest_end(skb, jump_node);
 		}
 
 		nla_nest_end(skb, jump);
+		nla_nest_end(skb, node);
 	}
 
 	nla_nest_end(skb, nodes);
 	return 0;
 field_put_failure:
 	nla_nest_cancel(skb, field);
+jump_node_put_failure:
+	nla_nest_cancel(skb, jump_node);
 jump_put_failure:
 	nla_nest_cancel(skb, jump);	
+node_put_failure:
+	nla_nest_cancel(skb, node);
 out:
 	nla_nest_cancel(skb, nodes);	
 	return -EMSGSIZE;
