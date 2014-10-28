@@ -436,12 +436,15 @@ struct hw_flow_parser_nodes ixgbe_parse_graph = {
 	.nodes = ixgbe_parse_graph_nodes,
 };
 
-struct hw_flow_jump_table ixgbe_table_node_l2_jump[1] = {
+struct hw_flow_jump_table ixgbe_table_node_l2_jump[2] = {
 	{
 		.field = {0},
 		.node = 2,
 	},
-
+	{
+		.field = {0},
+		.node = 0,
+	},
 };
 
 struct hw_table_graph_node ixgbe_table_node_l2 = {
@@ -449,11 +452,15 @@ struct hw_table_graph_node ixgbe_table_node_l2 = {
 	.jump = ixgbe_table_node_l2_jump,
 };
 
-struct hw_flow_jump_table ixgbe_table_node_fdir_jump[1] = {
+struct hw_flow_jump_table ixgbe_table_node_fdir_jump[2] = {
 	{
 		.field = {0},
 		.node = HW_FLOW_JUMP_TABLE_DONE,
 	},
+	{
+		.field = {0},
+		.node = 0,
+	}
 };
 
 struct hw_table_graph_node ixgbe_table_node_fdir = {
@@ -461,9 +468,15 @@ struct hw_table_graph_node ixgbe_table_node_fdir = {
 	.jump = ixgbe_table_node_fdir_jump,
 };
 
-struct hw_table_graph_node *ixgbe_table_graph_nodes[2] = {
+struct hw_table_graph_node ixgbe_table_node_nil = {
+	.uid = 0,
+	.jump = NULL,
+};
+
+struct hw_table_graph_node *ixgbe_table_graph_nodes[3] = {
 	&ixgbe_table_node_l2,
 	&ixgbe_table_node_fdir,
+	&ixgbe_table_node_nil,
 };
 
 struct hw_table_graph_nodes ixgbe_table_graph = {
