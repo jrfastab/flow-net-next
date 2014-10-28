@@ -284,7 +284,7 @@ int hw_flow_flow_to_nl(struct sk_buff *skb, struct hw_flow_flow *flow, int mcnt,
 {
 	struct nlattr *flows, *matches, *field;
 	struct nlattr *actions = NULL; /* must be null to unwind */
-	int err, j, acts = 0, i = 0;
+	int err, j, i = 0;
 
 	flows = nla_nest_start(skb, HW_FLOW_FLOW);
 	if (!flows)
@@ -957,10 +957,119 @@ static int flow_table_cmd_get_parse_graph(struct sk_buff *skb,
 	return -EOPNOTSUPP;
 }
 
+static int
+hw_flow_table_graph_to_nl(struct sk_buff *skb, struct hw_table_graph_nodes *g)
+{
+	struct nlattr *nodes, *jump, *field;
+	struct hw_table_graph_node *n;
+	int err;
+
+	nodes = nla_nest_start(skb, HW_TABLE_GRAPH_NODES);
+	if (!nodes)
+		return -EMSGSIZE;
+
+	for (n = g->nodes[0]; n->uid; n++) {
+		struct hw_flow_jump_table *j;
+
+		if (nla_put_u32(skb, HW_TABLE_GRAPH_NODE_UID, n->uid))
+			goto out;
+
+		jump = nla_nest_start(skb, HW_TABLE_GRAPH_NODE_JUMP);
+		if (!jump)
+			goto out;	
+
+		for (j = &n->jump[0]; j->node; j++) {
+			if (nla_put_u32(skb, HW_TABLE_GRAPH_NODE_UID, j->node))
+				goto jump_put_failure;
+
+			field = nla_nest_start(skb, HW_TABLE_GRAPH_NODE_JUMP);
+			err = hw_flow_field_ref_to_nl(skb, &j->field);
+			if (err)
+				goto field_put_failure;
+			nla_nest_end(skb, field);
+		}
+
+		nla_nest_end(skb, jump);
+	}
+
+	nla_nest_end(skb, nodes);
+	return 0;
+field_put_failure:
+	nla_nest_cancel(skb, field);
+jump_put_failure:
+	nla_nest_cancel(skb, jump);	
+out:
+	nla_nest_cancel(skb, nodes);	
+	return -EMSGSIZE;
+}
+
+static
+struct sk_buff *flow_table_build_table_graph_msg(struct hw_table_graph_nodes *g,
+						 struct net_device *dev,
+						 u32 portid, int seq, u8 cmd)
+{
+	struct genlmsghdr *hdr;
+	struct sk_buff *skb;
+	int err = -ENOBUFS;
+
+	skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+	if (!skb)
+		return ERR_PTR(-ENOBUFS);
+
+	hdr = genlmsg_put(skb, portid, seq, &flow_table_nl_family, 0, cmd);
+	if (!hdr)
+		goto out;
+
+	if (nla_put_u32(skb, FLOW_TABLE_IDENTIFIER_TYPE, FLOW_TABLE_IDENTIFIER_IFINDEX) ||
+	    nla_put_u32(skb, FLOW_TABLE_IDENTIFIER, dev->ifindex)) {
+		err = -ENOBUFS;
+		goto out;
+	}
+
+	err = hw_flow_table_graph_to_nl(skb, g);
+	if (err < 0)
+		goto out;
+	
+	err = genlmsg_end(skb, hdr);
+	if (err < 0)
+		goto out;
+
+	return skb;
+out:
+	nlmsg_free(skb);
+	return ERR_PTR(err);
+}
+
 static int flow_table_cmd_get_table_graph(struct sk_buff *skb,
 					  struct genl_info *info)
 {
-	return -EOPNOTSUPP;
+	struct hw_table_graph_nodes *g;
+	struct net_device *dev;
+	struct sk_buff *msg;
+
+	dev = flow_table_get_dev(info);
+	if (!dev)
+		return -EINVAL;
+
+	if (!dev->netdev_ops->ndo_flow_table_get_tbl_graph) {
+		dev_put(dev);
+		return -EOPNOTSUPP;
+	}
+
+	g = dev->netdev_ops->ndo_flow_table_get_tbl_graph(dev);
+	if (!g)
+		return -EBUSY;
+
+	msg = flow_table_build_table_graph_msg(g, dev,
+					       info->snd_portid,
+					       info->snd_seq,
+					       FLOW_TABLE_CMD_GET_TABLE_GRAPH); 
+	dev_put(dev);
+
+	if (IS_ERR(msg))
+		return PTR_ERR(msg);
+
+	return genlmsg_reply(msg, info);
 }
 
 struct sk_buff *flow_table_build_flows_msg(struct net_device *dev,
