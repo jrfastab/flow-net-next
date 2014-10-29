@@ -154,6 +154,9 @@
  *	       [HW_FLOW_ACTION]
  *	         [..]
  *	       [...]
+ *    [HW_FLOW_FLOW]
+ *    	    [...]
+ *      
  *
  * Add Flow descriptions
  *
@@ -669,10 +672,9 @@ enum {
 	FLOW_TABLE_CMD_GET_ACTIONS,
 	FLOW_TABLE_CMD_GET_PARSE_GRAPH,
 	FLOW_TABLE_CMD_GET_TABLE_GRAPH,
-	FLOW_TABLE_CMD_GET_FLOWS,
 
-	FLOW_TABLE_CMD_FLOW_INSERT,
-	FLOW_TABLE_CMD_FLOW_REMOVE,
+	FLOW_TABLE_CMD_GET_FLOWS,
+	FLOW_TABLE_CMD_SET_FLOWS,
 };
 
 #define FLOW_TABLE_GENL_NAME "flow_table"

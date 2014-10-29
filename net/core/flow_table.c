@@ -49,6 +49,7 @@ struct nla_policy hw_flow_matches_policy[HW_FLOW_FIELD_REF_MAX + 1] = {
 
 static const
 struct nla_policy hw_flow_flow_policy[HW_FLOW_FLOW_ATTR_MAX + 1] = {
+	[HW_FLOW_FLOW_ATTR_TABLE]	= { .type = NLA_U32 },
 	[HW_FLOW_FLOW_ATTR_UID]		= { .type = NLA_U32 },
 	[HW_FLOW_FLOW_ATTR_PRIORITY]	= { .type = NLA_U32 },
 	[HW_FLOW_FLOW_ATTR_MATCHES]	= { .type = NLA_NESTED },
@@ -679,7 +680,7 @@ static int nl_to_sw_flow(struct hw_flow_flow *flow, struct nlattr *attr)
 {
 	struct nlattr *f[HW_FLOW_FLOW_ATTR_MAX+1];
 	struct nlattr *attr2;
-	int rem, err, uid, priority;
+	int rem, err;
 	int count = 0;
 
 	if (nla_type(attr) != HW_FLOW_FLOW) {
@@ -691,30 +692,42 @@ static int nl_to_sw_flow(struct hw_flow_flow *flow, struct nlattr *attr)
 	if (err < 0)
 		return 0;
 
-	uid = nla_get_u32(f[HW_FLOW_FLOW_ATTR_UID]);
-	priority = nla_get_u32(f[HW_FLOW_FLOW_ATTR_PRIORITY]);
+	flow->table_id = nla_get_u32(f[HW_FLOW_FLOW_ATTR_TABLE]);
+	flow->uid = nla_get_u32(f[HW_FLOW_FLOW_ATTR_UID]);
+	flow->priority = nla_get_u32(f[HW_FLOW_FLOW_ATTR_PRIORITY]);
 
-	nla_for_each_nested(attr2, f[HW_FLOW_FLOW_ATTR_MATCHES], rem)
-		count++;
+	flow->matches = NULL;
+	flow->actions = NULL;
 
-	flow->matches = kcalloc(count,
-				sizeof(struct hw_flow_field_ref), GFP_KERNEL);
-	count = 0;
+	if (f[HW_FLOW_FLOW_ATTR_MATCHES]) {
+		nla_for_each_nested(attr2, f[HW_FLOW_FLOW_ATTR_MATCHES], rem)
+			count++;
 
-	nla_for_each_nested(attr2, f[HW_FLOW_FLOW_ATTR_MATCHES], rem) {
-		nl_to_sw_field_ref(&flow->matches[count], attr2);
-		count++;
+		flow->matches = kcalloc(count,
+					sizeof(struct hw_flow_field_ref), GFP_KERNEL);
+		if (!flow->matches)
+			return -ENOMEM;
+
+		count = 0;
+		nla_for_each_nested(attr2, f[HW_FLOW_FLOW_ATTR_MATCHES], rem) {
+			nl_to_sw_field_ref(&flow->matches[count], attr2);
+			count++;
+		}
 	}
 
-	count = 0;
-	nla_for_each_nested(attr2, f[HW_FLOW_FLOW_ATTR_ACTIONS], rem)
-		count++;
-	flow->actions = kcalloc(count, sizeof(struct hw_flow_action), GFP_KERNEL);
-	count = 0;
+	if (f[HW_FLOW_FLOW_ATTR_ACTIONS]) {
+		count = 0;
+		nla_for_each_nested(attr2, f[HW_FLOW_FLOW_ATTR_ACTIONS], rem)
+			count++;
+		flow->actions = kcalloc(count, sizeof(struct hw_flow_action), GFP_KERNEL);
+		if (!flow->actions)
+			return -ENOMEM;
 
-	nla_for_each_nested(attr2, f[HW_FLOW_FLOW_ATTR_ACTIONS], rem) {
-		nl_to_sw_action(&flow->actions[count], attr2);
-		count++;
+		count = 0;
+		nla_for_each_nested(attr2, f[HW_FLOW_FLOW_ATTR_ACTIONS], rem) {
+			nl_to_sw_action(&flow->actions[count], attr2);
+			count++;
+		}
 	}
 
 	return 0;
@@ -772,14 +785,18 @@ int nl_to_sw_tables(struct hw_flow_tables *hw_flow, struct nlattr *t)
 }
 EXPORT_SYMBOL(nl_to_sw_tables);
 
-static void kfree_hw_flow_flows(struct hw_flow_flow *f)
+static void kfree_hw_flow(struct hw_flow_flow *f)
 {
 	if (!f)
 		return;
 
-	/* TBD leaking memory */
-
-	kfree(f);
+	if (f->matches)
+		kfree(f->matches);
+	if (f->actions) {
+		if (f->actions->args)
+			kfree(f->actions->args);
+		kfree(f->actions);
+	}
 }
 
 static void kfree_hw_flow_tables(struct hw_flow_tables *t)
@@ -793,7 +810,7 @@ static void kfree_hw_flow_tables(struct hw_flow_tables *t)
 		kfree(t->tables[i].name);
 		kfree(t->tables[i].matches);
 
-		kfree_hw_flow_flows(t->tables[i].flows);
+		kfree_hw_flow(t->tables[i].flows);
 	}
 }
 
@@ -1191,6 +1208,57 @@ out:
 	return -EINVAL;
 }
 
+static int flow_table_cmd_set_flows(struct sk_buff *skb,
+				    struct genl_info *info)
+{
+	struct nlattr *tb[FLOW_TABLE_FLOWS_MAX+1];
+	struct nlattr *flow;
+	int rem, err;
+	struct net_device *dev;
+
+	dev = flow_table_get_dev(info);
+	if (!dev)
+		return -EINVAL;
+
+	if (!dev->netdev_ops->ndo_flow_table_set_flows) {
+		dev_put(dev);
+		return -EOPNOTSUPP;
+	}
+
+	if (!info->attrs[FLOW_TABLE_IDENTIFIER_TYPE] ||
+	    !info->attrs[FLOW_TABLE_IDENTIFIER] ||
+	    !info->attrs[FLOW_TABLE_FLOWS]) {
+		printk("%s: received flows set cmd without preamble\n", __func__);
+		goto out;
+	}
+
+	err = nla_parse_nested(tb, FLOW_TABLE_FLOWS_MAX,
+			       info->attrs[FLOW_TABLE_FLOWS],
+			       flow_table_flows_policy);
+	if (err) {
+		printk("%s: table flows parse error\n", __func__);
+		goto out;
+	}
+
+	nla_for_each_nested(flow, tb[FLOW_TABLE_FLOWS_FLOWS], rem) {
+		struct hw_flow_flow this;
+
+		err = nl_to_sw_flow(&this, flow);
+		if (err)
+			goto out;
+
+		dev->netdev_ops->ndo_flow_table_set_flows(dev, &this);
+
+		kfree_hw_flow(&this);
+	}
+
+	dev_put(dev);
+	return 0;
+out:
+	dev_put(dev);
+	return -EINVAL;
+}
+
 static const struct genl_ops flow_table_nl_ops[] = {
 	{
 		.cmd = FLOW_TABLE_CMD_GET_TABLES,
@@ -1226,6 +1294,12 @@ static const struct genl_ops flow_table_nl_ops[] = {
 		.cmd = FLOW_TABLE_CMD_GET_FLOWS,
 		.doit = flow_table_cmd_get_flows,
 		//.policy = flow_table_cmd_get_flows,
+		.flags = GENL_ADMIN_PERM,
+	},
+	{
+		.cmd = FLOW_TABLE_CMD_SET_FLOWS,
+		.doit = flow_table_cmd_set_flows,
+		//.policy = flow_table_cmd_set_flows_policy,
 		.flags = GENL_ADMIN_PERM,
 	},
 };

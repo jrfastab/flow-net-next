@@ -7900,6 +7900,12 @@ static struct hw_table_graph_nodes *ixgbe_flow_table_get_tbl_graph(struct net_de
 	return &ixgbe_table_graph;
 }
 
+static int ixgbe_flow_table_set_flows(struct net_device *dev,
+				      struct sw_flow_flow *flow)
+{
+	return 0;
+}
+
 static int ixgbe_flow_table_get_flows(struct sk_buff *skb,
 				      struct net_device *dev,
 				      int table, int min_prio, int max_prio)
@@ -8087,6 +8093,7 @@ static const struct net_device_ops ixgbe_netdev_ops = {
 	.ndo_flow_table_get_headers = ixgbe_flow_table_get_headers,
 	.ndo_flow_table_get_actions = ixgbe_flow_table_get_actions,
 	.ndo_flow_table_get_flows = ixgbe_flow_table_get_flows,
+	.ndo_flow_table_set_flows = ixgbe_flow_table_set_flows,
 	.ndo_flow_table_get_tbl_graph = ixgbe_flow_table_get_tbl_graph,
 };
 

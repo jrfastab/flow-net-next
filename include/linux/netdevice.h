@@ -51,6 +51,7 @@
 #include <linux/netdev_features.h>
 #include <linux/neighbour.h>
 #include <uapi/linux/netdevice.h>
+#include <uapi/linux/if_flow.h> /*move out of uapi should be linux/if_flow.h */
 
 struct netpoll_info;
 struct device;
@@ -1156,6 +1157,8 @@ struct net_device_ops {
 	int		        (*ndo_flow_table_get_flows)(struct sk_buff *skb,
 							    struct net_device *dev,
 							    int table, int min, int max);
+	int		        (*ndo_flow_table_set_flows)(struct net_device *dev,
+							    struct hw_flow_flow *f);
 	struct hw_table_graph_nodes *(*ndo_flow_table_get_tbl_graph)(struct net_device *dev);
 };
 
