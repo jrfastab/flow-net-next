@@ -2567,15 +2567,58 @@ static int ixgbe_flowspec_to_flow_type(struct ethtool_rx_flow_spec *fsp,
 	return 1;
 }
 
+int ixgbe_update_fdir_entry(struct ixgbe_adapter *adapter,
+			    struct ixgbe_fdir_filter *input,
+			    union ixgbe_atr_input *mask)
+{
+	struct ixgbe_hw *hw = &adapter->hw;
+	int err;
+
+	spin_lock(&adapter->fdir_perfect_lock);
+
+	if (hlist_empty(&adapter->fdir_filter_list)) {
+		/* save mask and program input mask into HW */
+		memcpy(&adapter->fdir_mask, mask, sizeof(*mask));
+		err = ixgbe_fdir_set_input_mask_82599(hw, mask);
+		if (err) {
+			e_err(drv, "Error writing mask\n");
+			goto err_out_w_lock;
+		}
+	} else if (memcmp(&adapter->fdir_mask, mask, sizeof(*mask))) {
+		e_err(drv, "Only one mask supported per port\n");
+		err = -EINVAL;
+		goto err_out_w_lock;
+	}
+
+	/* apply mask and compute/store hash */
+	ixgbe_atr_compute_perfect_hash_82599(&input->filter, mask);
+
+	/* program filters to filter memory */
+	err = ixgbe_fdir_write_perfect_filter_82599(hw,
+				&input->filter, input->sw_idx,
+				(input->action == IXGBE_FDIR_DROP_QUEUE) ?
+				IXGBE_FDIR_DROP_QUEUE :
+				adapter->rx_ring[input->action]->reg_idx);
+	if (err)
+		goto err_out_w_lock;
+
+	ixgbe_update_ethtool_fdir_entry(adapter, input, input->sw_idx);
+
+	spin_unlock(&adapter->fdir_perfect_lock);
+
+	return err;
+err_out_w_lock:
+	spin_unlock(&adapter->fdir_perfect_lock);
+	return err; 
+}
+
 static int ixgbe_add_ethtool_fdir_entry(struct ixgbe_adapter *adapter,
 					struct ethtool_rxnfc *cmd)
 {
 	struct ethtool_rx_flow_spec *fsp =
 		(struct ethtool_rx_flow_spec *)&cmd->fs;
-	struct ixgbe_hw *hw = &adapter->hw;
 	struct ixgbe_fdir_filter *input;
 	union ixgbe_atr_input mask;
-	int err;
 
 	if (!(adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE))
 		return -EOPNOTSUPP;
@@ -2644,40 +2687,7 @@ static int ixgbe_add_ethtool_fdir_entry(struct ixgbe_adapter *adapter,
 	else
 		input->action = fsp->ring_cookie;
 
-	spin_lock(&adapter->fdir_perfect_lock);
-
-	if (hlist_empty(&adapter->fdir_filter_list)) {
-		/* save mask and program input mask into HW */
-		memcpy(&adapter->fdir_mask, &mask, sizeof(mask));
-		err = ixgbe_fdir_set_input_mask_82599(hw, &mask);
-		if (err) {
-			e_err(drv, "Error writing mask\n");
-			goto err_out_w_lock;
-		}
-	} else if (memcmp(&adapter->fdir_mask, &mask, sizeof(mask))) {
-		e_err(drv, "Only one mask supported per port\n");
-		goto err_out_w_lock;
-	}
-
-	/* apply mask and compute/store hash */
-	ixgbe_atr_compute_perfect_hash_82599(&input->filter, &mask);
-
-	/* program filters to filter memory */
-	err = ixgbe_fdir_write_perfect_filter_82599(hw,
-				&input->filter, input->sw_idx,
-				(input->action == IXGBE_FDIR_DROP_QUEUE) ?
-				IXGBE_FDIR_DROP_QUEUE :
-				adapter->rx_ring[input->action]->reg_idx);
-	if (err)
-		goto err_out_w_lock;
-
-	ixgbe_update_ethtool_fdir_entry(adapter, input, input->sw_idx);
-
-	spin_unlock(&adapter->fdir_perfect_lock);
-
-	return err;
-err_out_w_lock:
-	spin_unlock(&adapter->fdir_perfect_lock);
+	return ixgbe_update_fdir_entry(adapter, input, &mask);
 err_out:
 	kfree(input);
 	return -EINVAL;

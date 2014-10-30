@@ -630,7 +630,7 @@ static int nl_to_sw_action(struct hw_flow_action *a, struct nlattr *attr)
 	nla_for_each_nested(args, act[HW_FLOW_ACTION_ATTR_SIGNATURE], rem)
 		count++; /* unoptimized max possible */
 
-	a->args = kcalloc(count, sizeof(struct hw_flow_action_arg), GFP_KERNEL);
+	a->args = kcalloc(count + 1, sizeof(struct hw_flow_action_arg), GFP_KERNEL);
 	count = 0;
 
 	nla_for_each_nested(args, act[HW_FLOW_ACTION_ATTR_SIGNATURE], rem) {
@@ -685,12 +685,14 @@ static int nl_to_sw_flow(struct hw_flow_flow *flow, struct nlattr *attr)
 
 	if (nla_type(attr) != HW_FLOW_FLOW) {
 		pr_warn("%s: unknown field in table/flows\n", __func__);
-		return 0;
+		return -EINVAL;
 	}
 
 	err = nla_parse_nested(f, HW_FLOW_FLOW_ATTR_MAX, attr, hw_flow_flow_policy);
-	if (err < 0)
-		return 0;
+	if (err < 0) { /* TBD remove warns or at least rate lmit */
+		pr_warn("%s: flow flow attr parse error\n", __func__);
+		return -EINVAL;
+	}
 
 	flow->table_id = nla_get_u32(f[HW_FLOW_FLOW_ATTR_TABLE]);
 	flow->uid = nla_get_u32(f[HW_FLOW_FLOW_ATTR_UID]);
@@ -703,7 +705,8 @@ static int nl_to_sw_flow(struct hw_flow_flow *flow, struct nlattr *attr)
 		nla_for_each_nested(attr2, f[HW_FLOW_FLOW_ATTR_MATCHES], rem)
 			count++;
 
-		flow->matches = kcalloc(count,
+		/* Null terminated list of matches */
+		flow->matches = kcalloc(count + 1,
 					sizeof(struct hw_flow_field_ref), GFP_KERNEL);
 		if (!flow->matches)
 			return -ENOMEM;
@@ -719,9 +722,13 @@ static int nl_to_sw_flow(struct hw_flow_flow *flow, struct nlattr *attr)
 		count = 0;
 		nla_for_each_nested(attr2, f[HW_FLOW_FLOW_ATTR_ACTIONS], rem)
 			count++;
-		flow->actions = kcalloc(count, sizeof(struct hw_flow_action), GFP_KERNEL);
-		if (!flow->actions)
+
+		/* Null terminated list of actions */
+		flow->actions = kcalloc(count + 1, sizeof(struct hw_flow_action), GFP_KERNEL);
+		if (!flow->actions) {
+			kfree(flow->matches);
 			return -ENOMEM;
+		}
 
 		count = 0;
 		nla_for_each_nested(attr2, f[HW_FLOW_FLOW_ATTR_ACTIONS], rem) {
@@ -1249,7 +1256,9 @@ static int flow_table_cmd_set_flows(struct sk_buff *skb,
 
 		dev->netdev_ops->ndo_flow_table_set_flows(dev, &this);
 
-		kfree_hw_flow(&this);
+		/* Cleanup flow */
+		kfree(this.matches);
+		kfree(this.actions);
 	}
 
 	dev_put(dev);

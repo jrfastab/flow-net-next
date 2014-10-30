@@ -7660,76 +7660,6 @@ static int ixgbe_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
 	return ndo_dflt_fdb_add(ndm, tb, dev, addr, flags);
 }
 
-static int ixgbe_ndo_bridge_setflow(struct net_device *dev, struct nlattr *t)
-{
-	struct ixgbe_adapter *adapter = netdev_priv(dev);
-	struct ixgbe_hw *hw = &adapter->hw;
-	struct hw_flow_tables tables;
-	struct hw_flow_table *table;
-	int i;
-
-	/* IFLA_BRIDGE_TABLES */
-	//nl_to_sw_tables(&tables, t);
-
-	table = tables.tables;
-
-	for (i = 0; i < tables.table_sz; i++, table++) {
-		struct hw_flow_flow *flows = &table->flows[0];
-		struct hw_flow_action *action;
-
-		struct hw_flow_field_ref *match;
-		unsigned char mac[ETH_ALEN];
-
-		if (!table) {
-			e_dev_warn("No flows on setflow cmd\n");
-			continue;
-		}
-
-		switch (table->uid) {
-		case IXGBE_L2_TABLE:
-			match = &flows->matches[0];
-			action = &flows->actions[0];
-
-			if (!match) {
-				e_dev_warn("missing match\n");
-				break;
-			}
-
-			if (!action) {
-				e_dev_warn("missing action\n");
-				break;
-			}
-
-			if (match->header != 0 || match->field != 1 ||
-			    match->type != HW_FLOW_FIELD_REF_ATTR_TYPE_U64) {
-				e_dev_warn("unknown header/field\n");
-				break;
-			}
-
-			/* l2 table only used for port forwarding */
-			if (action->uid != 0 ||
-			    action->args[0].type != HW_FLOW_ACTION_ARG_TYPE_U32)
-				break;
-
-			memcpy(mac,
-			       (unsigned  char *)&match->value_u64, ETH_ALEN);
-
-			printk("%s: program port %i mac %02x:%02x:%02x:%02x:%02x:%02x\n",
-			       dev->name, action->args[0].value_u32,
-			       mac[5], mac[4], mac[3], mac[2], mac[1], mac[0]);
-			//err = ixgbe_ndo_set_vf_mac(dev, port, mac);
-			break;
-		case IXGBE_FDIR_TABLE:
-			//ixgbe_add_mac_filter(adapter, vdev->dev_addr, );
-		default:
-			e_dev_warn("unknown table %s:%i\n",
-				   table->name, table->uid);
-			break;
-		}
-	}
-	return 0;
-}
-
 static int ixgbe_ndo_bridge_setlink(struct net_device *dev,
 				    struct nlmsghdr *nlh)
 {
@@ -7737,10 +7667,8 @@ static int ixgbe_ndo_bridge_setlink(struct net_device *dev,
 	struct nlattr *attr, *br_spec;
 	int rem;
 
-/*
 	if (!(adapter->flags & IXGBE_FLAG_SRIOV_ENABLED))
 		return -EOPNOTSUPP;
-*/
 
 	br_spec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
 
@@ -7901,8 +7829,165 @@ static struct hw_table_graph_nodes *ixgbe_flow_table_get_tbl_graph(struct net_de
 }
 
 static int ixgbe_flow_table_set_flows(struct net_device *dev,
-				      struct sw_flow_flow *flow)
+				      struct hw_flow_flow *flow)
 {
+	struct ixgbe_adapter *adapter = netdev_priv(dev);
+	struct hw_flow_field_ref *match;
+	struct ixgbe_fdir_filter input;
+	struct hw_flow_action *action;
+	unsigned char mac[ETH_ALEN];
+	union ixgbe_atr_input mask;
+	int err;
+
+	if (!flow->table_id) {
+		e_dev_warn("No table_id in set_flow cmd\n");
+		return -EINVAL;
+	}
+
+	match = &flow->matches[0];
+	action = &flow->actions[0];
+
+	if (!match) {
+		printk("%s: nop match abort\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!action) {
+		printk("%s: nop action abort\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!action->args) {
+		e_dev_warn("missing action argument\n");
+		return -EINVAL;
+	}
+
+	switch (flow->table_id) {
+	case IXGBE_L2_TABLE:
+		/* TBD write generic table (action/match) verifiers in core */
+		if (match->header != 1 || match->field != 2 ||
+		    match->type != HW_FLOW_FIELD_REF_ATTR_TYPE_U64) {
+			e_dev_warn("unknown header/field\n");
+			break;
+		}
+
+		if (!action) {
+			e_dev_warn("missing action\n");
+			break;
+		}
+
+		if (!action->args) {
+			e_dev_warn("missing action argument\n");
+			break;
+		}
+
+		/* l2 table only used for port forwarding */
+		if (action->uid != 1) {
+			e_dev_warn("invalid uid\n");
+			break;
+		}
+
+		if (action->args[0].type != HW_FLOW_ACTION_ARG_TYPE_U32) {
+			e_dev_warn("no args expected args!\n");
+		}
+		memcpy(mac,
+		       (unsigned  char *)&match->value_u64, ETH_ALEN);
+
+		/* TBD flip switch my test system doesn't have SR-IOV enabled atm */
+		printk("%s: program port %i mac %02x:%02x:%02x:%02x:%02x:%02x\n",
+		       dev->name, action->args[0].value_u32,
+		       mac[5], mac[4], mac[3], mac[2], mac[1], mac[0]);
+		//err = ixgbe_ndo_set_vf_mac(dev, port, mac);
+		break;
+	case IXGBE_FDIR_TABLE:
+		if (!(adapter->flags & IXGBE_FLAG_FDIR_PERFECT_CAPABLE))
+			return -EOPNOTSUPP;	
+
+		memset(&input, 0, sizeof(input));
+		memset(&mask, 0, sizeof(mask));
+
+		/* Don't allow indexes to exist outside of available space */
+		if (flow->uid >= ((1024 << adapter->fdir_pballoc) - 2))
+			return -EINVAL;
+
+		input.sw_idx = flow->uid;
+
+		for (; match->header || match->field; match++) {
+			/* TBD everything needs to be #defined for readability
+			 * and actually a lookup table would be cleaner. ixgbe
+			 * has a fairly small set of match fields though.
+			 */
+			switch (match->header) {
+			case 2:	/* vlan */
+				switch (match->field) {
+				case 3: /*vid */
+					input.filter.formatted.vlan_id = match->value_u16;
+					mask.formatted.vlan_id = match->mask_u16;
+					break;
+				case 4: /* ethertype */
+					return -EOPNOTSUPP;
+					break;
+				default:
+					return -EINVAL;
+				}
+				break;
+			case 3: /* ip */
+				switch (match->field) {
+				case 12: /* src_ip */
+					input.filter.formatted.src_ip[0] = match->value_u32;
+					mask.formatted.src_ip[0] = match->mask_u32;
+					break;
+				case 13: /* dst_ip */
+					input.filter.formatted.dst_ip[0] = match->value_u32;
+					mask.formatted.dst_ip[0] = match->mask_u32;
+					break;
+				default:
+					return -EINVAL;
+				}
+				break;
+			case 4: /* tcp */
+				switch (match->field) {
+				case 1: /* src port */
+					input.filter.formatted.src_port = match->value_u16;
+					mask.formatted.src_port = match->mask_u16;
+					break;
+				case 2: /* dst port */
+					input.filter.formatted.dst_port = match->value_u16;
+					mask.formatted.dst_port = match->mask_u16;
+					break;
+				default:
+					return -EINVAL;
+				}
+				break;
+			default:
+				return -EINVAL;
+			}
+		}
+
+		for (; action && action->uid; action++) {
+			switch (action->uid) {
+			case 2: //set egress queue
+				/* tbd: core needs to verify args exist */
+				if (action->args[0].value_u32 > adapter->num_rx_queues)
+					return -EINVAL;
+				input.action = action->args[0].value_u32;
+				break;
+			case 3: //drop packet action
+				input.action = IXGBE_FDIR_DROP_QUEUE;
+				break;
+			}
+		}
+
+		err = ixgbe_update_fdir_entry(adapter, &input, &mask);
+		if (err)
+			return err;
+		break;
+	default:
+		/* TBD: Core should catch this error! */
+		e_dev_warn("unknown table %i\n", flow->table_id);
+		break;
+	}
+
 	return 0;
 }
 
@@ -7958,17 +8043,23 @@ static int ixgbe_flow_table_get_flows(struct sk_buff *skb,
 		 */
 		hlist_for_each_entry_safe(rule, node2,
 					  &adapter->fdir_filter_list, fdir_node) {
-			struct hw_flow_field_ref ref[5];
+			struct hw_flow_field_ref *ref;
 			struct hw_flow_flow flow;
 			struct hw_flow_action action;
-			struct hw_flow_action_arg arg;
+			struct hw_flow_action_arg *args;
 
 			int acnt = 0, count = 0, argcnt = 0;
  
-			memset(&ref, 0, sizeof(ref));
+			ref = kcalloc(5, sizeof(struct hw_flow_field_ref), GFP_KERNEL);
+			if (!ref)
+				return -ENOMEM;	
+			args = kcalloc(2, sizeof(struct hw_flow_action_arg), GFP_KERNEL);
+			if (!args) {
+				kfree(ref);
+				return -ENOMEM;
+			}
 			memset(&flow, 0, sizeof(flow));
 			memset(&action, 0, sizeof(action));
-			memset(&arg, 0, sizeof(arg));
 
 			flow.table_id = IXGBE_FDIR_TABLE;
 			flow.uid = 99;
@@ -8025,19 +8116,20 @@ static int ixgbe_flow_table_get_flows(struct sk_buff *skb,
 			if (rule->action == IXGBE_FDIR_DROP_QUEUE) {
 				action.uid = 3;
 			} else  {
-				arg.type = HW_FLOW_ACTION_ARG_TYPE_U32;
-				arg.value_u32 = rule->action;
+				args[0].type = HW_FLOW_ACTION_ARG_TYPE_U32;
+				args[0].value_u32 = rule->action;
 
 				action.uid = 2;
-				action.args = &arg;
-				flow.actions =  &action;
 				acnt = argcnt = 1;
 			}
 
+			action.args = args;
 			flow.matches = ref;
 			flow.actions =  &action;
 
 			hw_flow_flow_to_nl(skb, &flow, count, acnt, argcnt);
+			kfree(ref);
+			kfree(args);
 		}
 	}
 

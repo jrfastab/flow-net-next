@@ -47,7 +47,7 @@ struct hw_flow_header ethernet = {
 struct hw_flow_field vlan_fields[4] = {
 	{ .name = "pcp", .uid = 1, .bitwidth = 3,},
 	{ .name = "cfi", .uid = 2, .bitwidth = 1,},
-	{ .name = "vid", .uid = 3, .bitwidth = 1,},
+	{ .name = "vid", .uid = 3, .bitwidth = 12,},
 	{ .name = "ethertype", .uid = 4, .bitwidth = 16,},
 };
 
