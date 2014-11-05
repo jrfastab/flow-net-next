@@ -31,34 +31,34 @@
 
 #include <uapi/linux/if_flow.h>
 
-struct hw_flow_field ethernet_fields[3] = {
+struct net_flow_field ethernet_fields[3] = {
 	{ .name = "src_mac", .uid = 1, .bitwidth = 48},
 	{ .name = "dst_mac", .uid = 2, .bitwidth = 48},
 	{ .name = "ethertype", .uid = 3, .bitwidth = 16},
 };
 
-struct hw_flow_header ethernet = {
+struct net_flow_header ethernet = {
 	.name = "ethernet",
 	.uid = 1,
 	.field_sz = 3,
 	.fields = ethernet_fields,
 };
 
-struct hw_flow_field vlan_fields[4] = {
+struct net_flow_field vlan_fields[4] = {
 	{ .name = "pcp", .uid = 1, .bitwidth = 3,},
 	{ .name = "cfi", .uid = 2, .bitwidth = 1,},
 	{ .name = "vid", .uid = 3, .bitwidth = 12,},
 	{ .name = "ethertype", .uid = 4, .bitwidth = 16,},
 };
 
-struct hw_flow_header vlan = {
+struct net_flow_header vlan = {
 	.name = "vlan",
 	.uid = 2,
 	.field_sz = 4,
 	.fields = vlan_fields,
 };
 
-struct hw_flow_field ipv4_fields[14] = {
+struct net_flow_field ipv4_fields[14] = {
 	{ .name = "version",
 	  .uid = 1,
 	  .bitwidth = 4,},
@@ -103,14 +103,14 @@ struct hw_flow_field ipv4_fields[14] = {
 	  .bitwidth = -1,},
 };
 
-struct hw_flow_header ipv4 = {
+struct net_flow_header ipv4 = {
 	.name = "ipv4",
 	.uid = 3,
 	.field_sz = 14,
 	.fields = ipv4_fields,
 };
 
-struct hw_flow_field tcp_fields[10] = {
+struct net_flow_field tcp_fields[10] = {
 	{ .name = "src_port",
 	  .uid = 1,
 	  .bitwidth = 16,
@@ -148,14 +148,14 @@ struct hw_flow_field tcp_fields[10] = {
 	  .bitwidth = 16},
 };
 
-struct hw_flow_header tcp = {
+struct net_flow_header tcp = {
 	.name = "tcp",
 	.uid = 4,
 	.field_sz = 10,
 	.fields = tcp_fields,
 };
 
-struct hw_flow_field metadata_fields[2] = {
+struct net_flow_field metadata_fields[2] = {
 	{ .name = "egress_port",
 	  .uid = 1,
 	  .bitwidth = 32,
@@ -166,69 +166,69 @@ struct hw_flow_field metadata_fields[2] = {
 	}
 };
 
-struct hw_flow_header metadata_t = {
+struct net_flow_header metadata_t = {
 	.name = "metadata_t",
 	.uid = 5,
 	.field_sz = 2,
 	.fields = metadata_fields,
 };
 
-struct hw_flow_action_arg l2_action_args[2] = {
+struct net_flow_action_arg l2_action_args[2] = {
 	{
 		.name = "port_id",
-		.type = HW_FLOW_ACTION_ARG_TYPE_U32,
+		.type = NET_FLOW_ACTION_ARG_TYPE_U32,
 		.value_u32 = 0,
 	},
 	{
 		.name = "",
-		.type = HW_FLOW_ACTION_ARG_TYPE_NULL,
+		.type = NET_FLOW_ACTION_ARG_TYPE_NULL,
 	},
 };
 
-struct hw_flow_action set_egress_port = {
+struct net_flow_action set_egress_port = {
 	.name = "set_egress_port",
 	.uid = 1,
 	.args = l2_action_args,
 };
 
-struct hw_flow_action_arg meta_action_egress_args[2] = {
+struct net_flow_action_arg meta_action_egress_args[2] = {
 	{
 		.name = "queue",
-		.type = HW_FLOW_ACTION_ARG_TYPE_U32,
+		.type = NET_FLOW_ACTION_ARG_TYPE_U32,
 		.value_u32 = 0,
 	},
 	{
 		.name = "",
-		.type = HW_FLOW_ACTION_ARG_TYPE_NULL,
+		.type = NET_FLOW_ACTION_ARG_TYPE_NULL,
 	},
 };
 
-struct hw_flow_action_arg meta_action_drop_args[1] = {
+struct net_flow_action_arg meta_action_drop_args[1] = {
 	{
 		.name = "",
-		.type = HW_FLOW_ACTION_ARG_TYPE_NULL,
+		.type = NET_FLOW_ACTION_ARG_TYPE_NULL,
 	},
 };
 
-struct hw_flow_action set_egress_queue = {
+struct net_flow_action set_egress_queue = {
 	.name = "set_egress_queue",
 	.uid = 2,
 	.args = meta_action_egress_args,
 };
 
-struct hw_flow_action drop_packet = {
+struct net_flow_action drop_packet = {
 	.name = "drop_packet",
 	.uid = 3,
 	.args = meta_action_drop_args,
 };
 
-struct hw_flow_action nil_action = {
+struct net_flow_action nil_action = {
 	.name = "",
 	.uid = 4,
 	.args = NULL
 };
 
-struct hw_flow_field_ref fdir_matches[8] =
+struct net_flow_field_ref fdir_matches[8] =
 {
 	{ .header = 2, .field = 3},
 	{ .header = 2, .field = 4},
@@ -240,14 +240,14 @@ struct hw_flow_field_ref fdir_matches[8] =
 	{ .header = 0, .field = 0},
 };
 
-struct hw_flow_field_ref l2_matches[2] =
+struct net_flow_field_ref l2_matches[2] =
 {
 	{ .header = 1, .field = 2, },
 	{ .header = 0, .field = 0, },
 };
 
 
-struct hw_flow_action *ixgbe_action_list[4] =
+struct net_flow_action *ixgbe_action_list[4] =
 {
 	&drop_packet,
 	&set_egress_queue,
@@ -255,17 +255,17 @@ struct hw_flow_action *ixgbe_action_list[4] =
 	&nil_action,
 };
 
-struct hw_flow_actions ixgbe_actions = {
+struct net_flow_actions ixgbe_actions = {
 	.actions = ixgbe_action_list,
 };
 
-hw_flow_action_ref ixgbe_l2_actions[2] = {1,0};
-hw_flow_action_ref ixgbe_fdir_actions[3] = {2,3,0};
+net_flow_action_ref ixgbe_l2_actions[2] = {1,0};
+net_flow_action_ref ixgbe_fdir_actions[3] = {2,3,0};
 
 #define IXGBE_L2_TABLE		1
 #define IXGBE_FDIR_TABLE	2
 
-struct hw_flow_table ixgbe_table_list[2] =
+struct net_flow_table ixgbe_table_list[2] =
 {
 	{
 		.name = "l2_table",
@@ -287,14 +287,14 @@ struct hw_flow_table ixgbe_table_list[2] =
 	},
 };
 
-struct hw_flow_tables ixgbe_tables = {
+struct net_flow_tables ixgbe_tables = {
 	.table_sz = 2,
 	.tables = ixgbe_table_list,
 };
 
-struct hw_flow_header nill = {.name = "", .uid = 0, .field_sz=0, .fields = NULL};
+struct net_flow_header nill = {.name = "", .uid = 0, .field_sz=0, .fields = NULL};
 
-struct hw_flow_header *ixgbe_header_list[6] =
+struct net_flow_header *ixgbe_header_list[6] =
 {
 	&ethernet,
 	&vlan,
@@ -304,20 +304,20 @@ struct hw_flow_header *ixgbe_header_list[6] =
 	&nill,
 };
 
-struct hw_flow_headers ixgbe_headers =
+struct net_flow_headers ixgbe_headers =
 {
-	.hw_flow_headers = ixgbe_header_list,
+	.net_flow_headers = ixgbe_header_list,
 };
 
 /* Maybe headers could be inferred from jump table? */
-hw_flow_header_ref ixgbe_ethernet_headers[1] = {1};
-struct hw_flow_jump_table ixgbe_ethernet_jump[2] =
+net_flow_header_ref ixgbe_ethernet_headers[1] = {1};
+struct net_flow_jump_table ixgbe_ethernet_jump[2] =
 {
 	{
 		.field = {
 		   .header = 1,
 		   .field = 3,
-		   .type = HW_FLOW_FIELD_REF_ATTR_TYPE_U16,
+		   .type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
 		   .value_u16 = 0x8100,
 		},
 		.node = 2,
@@ -326,27 +326,27 @@ struct hw_flow_jump_table ixgbe_ethernet_jump[2] =
 		.field = {
 		   .header = 1,
 		   .field = 3,
-		   .type = HW_FLOW_FIELD_REF_ATTR_TYPE_U16,
+		   .type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
 		   .value_u16 = 0x0800,
 		},
 		.node = 3,
 	},
 };
 
-struct hw_flow_parser_node ixgbe_parse_node_ethernet = {
+struct net_flow_parser_node ixgbe_parse_node_ethernet = {
 	.uid = 1,
 	.hdrs = ixgbe_ethernet_headers,
 	.sets = NULL,
 	.jump = ixgbe_ethernet_jump,
 };
 
-hw_flow_header_ref ixgbe_vlan_headers[1] = {2};
-struct hw_flow_jump_table ixgbe_vlan_outer_jump[2] = {
+net_flow_header_ref ixgbe_vlan_headers[1] = {2};
+struct net_flow_jump_table ixgbe_vlan_outer_jump[2] = {
 	{
 		.field = {
 		   .header = 2,
 		   .field = 3,
-		   .type = HW_FLOW_FIELD_REF_ATTR_TYPE_U16,
+		   .type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
 		   .value_u16 = 0x8100,
 		},
 		.node = 3,
@@ -355,75 +355,75 @@ struct hw_flow_jump_table ixgbe_vlan_outer_jump[2] = {
 		.field = {
 		   .header = 2,
 		   .field = 3,
-		   .type = HW_FLOW_FIELD_REF_ATTR_TYPE_U16,
+		   .type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
 		   .value_u16 = 0x0800,
 		},
 		.node = 4,
 	},
 };
 
-struct hw_flow_jump_table ixgbe_vlan_inner_jump[1] = {
+struct net_flow_jump_table ixgbe_vlan_inner_jump[1] = {
 	{
 		.field = {
 		   .header = 1,
 		   .field = 3,
-		   .type = HW_FLOW_FIELD_REF_ATTR_TYPE_U16,
+		   .type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
 		   .value_u16 = 0x0800,
 		},
 		.node = 4,
 	},
 };
 
-struct hw_flow_parser_node ixgbe_parse_node_vlan_outer = {
+struct net_flow_parser_node ixgbe_parse_node_vlan_outer = {
 	.uid = 2,
 	.hdrs = ixgbe_vlan_headers,
 	.sets = NULL,
 	.jump = ixgbe_vlan_outer_jump,
 };
 
-struct hw_flow_parser_node ixgbe_parse_node_vlan_inner = {
+struct net_flow_parser_node ixgbe_parse_node_vlan_inner = {
 	.uid = 3,
 	.hdrs = ixgbe_vlan_headers,
 	.sets = NULL,
 	.jump = ixgbe_vlan_inner_jump,
 };
 
-hw_flow_header_ref ixgbe_ip_headers[1] = {3};
-struct hw_flow_jump_table ixgbe_ip_jump[1] = {
+net_flow_header_ref ixgbe_ip_headers[1] = {3};
+struct net_flow_jump_table ixgbe_ip_jump[1] = {
 	{
 		.field = {
 		   .header = 3,
 		   .field = 10,
-		   .type = HW_FLOW_FIELD_REF_ATTR_TYPE_U8,
+		   .type = NET_FLOW_FIELD_REF_ATTR_TYPE_U8,
 		   .value_u8 = 0x06,
 		},
 		.node = 5,
 	},
 };
 
-struct hw_flow_parser_node ixgbe_parse_node_ip = {
+struct net_flow_parser_node ixgbe_parse_node_ip = {
 	.uid = 4,
 	.hdrs = ixgbe_ip_headers,
 	.sets = NULL,
 	.jump = ixgbe_ip_jump,	
 };
 
-hw_flow_header_ref ixgbe_tcp_headers[1] = {4};
-struct hw_flow_jump_table ixgbe_tcp_jump[1] = {
+net_flow_header_ref ixgbe_tcp_headers[1] = {4};
+struct net_flow_jump_table ixgbe_tcp_jump[1] = {
 	{
 		.field = {0},
-		.node = HW_FLOW_JUMP_TABLE_DONE,
+		.node = NET_FLOW_JUMP_TABLE_DONE,
 	},
 };
 
-struct hw_flow_parser_node ixgbe_parse_node_tcp = {
+struct net_flow_parser_node ixgbe_parse_node_tcp = {
 	.uid = 5,
 	.hdrs = ixgbe_tcp_headers,
 	.sets = NULL,
 	.jump = ixgbe_tcp_jump,	
 };
 
-struct hw_flow_parser_node *ixgbe_parse_graph_nodes[5] = {
+struct net_flow_parser_node *ixgbe_parse_graph_nodes[5] = {
 	&ixgbe_parse_node_ethernet,
 	&ixgbe_parse_node_vlan_outer,
 	&ixgbe_parse_node_vlan_inner,
@@ -431,12 +431,12 @@ struct hw_flow_parser_node *ixgbe_parse_graph_nodes[5] = {
 	&ixgbe_parse_node_tcp,
 };
 
-struct hw_flow_parser_nodes ixgbe_parse_graph = {
+struct net_flow_parser_nodes ixgbe_parse_graph = {
 	.node_count = 5,
 	.nodes = ixgbe_parse_graph_nodes,
 };
 
-struct hw_flow_jump_table ixgbe_table_node_l2_jump[2] = {
+struct net_flow_jump_table ixgbe_table_node_l2_jump[2] = {
 	{
 		.field = {0},
 		.node = 2,
@@ -447,15 +447,15 @@ struct hw_flow_jump_table ixgbe_table_node_l2_jump[2] = {
 	},
 };
 
-struct hw_table_graph_node ixgbe_table_node_l2 = {
+struct net_flow_table_graph_node ixgbe_table_node_l2 = {
 	.uid = 1,
 	.jump = ixgbe_table_node_l2_jump,
 };
 
-struct hw_flow_jump_table ixgbe_table_node_fdir_jump[2] = {
+struct net_flow_jump_table ixgbe_table_node_fdir_jump[2] = {
 	{
 		.field = {0},
-		.node = HW_FLOW_JUMP_TABLE_DONE,
+		.node = NET_FLOW_JUMP_TABLE_DONE,
 	},
 	{
 		.field = {0},
@@ -463,23 +463,23 @@ struct hw_flow_jump_table ixgbe_table_node_fdir_jump[2] = {
 	}
 };
 
-struct hw_table_graph_node ixgbe_table_node_fdir = {
+struct net_flow_table_graph_node ixgbe_table_node_fdir = {
 	.uid = 2,
 	.jump = ixgbe_table_node_fdir_jump,
 };
 
-struct hw_table_graph_node ixgbe_table_node_nil = {
+struct net_flow_table_graph_node ixgbe_table_node_nil = {
 	.uid = 0,
 	.jump = NULL,
 };
 
-struct hw_table_graph_node *ixgbe_table_graph_nodes[3] = {
+struct net_flow_table_graph_node *ixgbe_table_graph_nodes[3] = {
 	&ixgbe_table_node_l2,
 	&ixgbe_table_node_fdir,
 	&ixgbe_table_node_nil,
 };
 
-struct hw_table_graph_nodes ixgbe_table_graph = {
+struct net_flow_table_graph_nodes ixgbe_table_graph = {
 	.node_count = 2,
 	.nodes = ixgbe_table_graph_nodes,
 };

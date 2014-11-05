@@ -7808,33 +7808,33 @@ static void ixgbe_fwd_del(struct net_device *pdev, void *priv)
 	kfree(fwd_adapter);
 }
 
-static struct hw_flow_tables *ixgbe_flow_table_get_tables(struct net_device *d)
+static struct net_flow_tables *ixgbe_flow_table_get_tables(struct net_device *d)
 {
 	return &ixgbe_tables;
 }
 
-static struct hw_flow_headers *ixgbe_flow_table_get_headers(struct net_device *d)
+static struct net_flow_headers *ixgbe_flow_table_get_headers(struct net_device *d)
 {
 	return &ixgbe_headers;
 }
 
-static struct hw_flow_actions *ixgbe_flow_table_get_actions(struct net_device *d)
+static struct net_flow_actions *ixgbe_flow_table_get_actions(struct net_device *d)
 {
 	return &ixgbe_actions;
 }
 
-static struct hw_table_graph_nodes *ixgbe_flow_table_get_tbl_graph(struct net_device *d)
+static struct net_flow_table_graph_nodes *ixgbe_flow_table_get_tbl_graph(struct net_device *d)
 {
 	return &ixgbe_table_graph;
 }
 
 static int ixgbe_flow_table_set_flows(struct net_device *dev,
-				      struct hw_flow_flow *flow)
+			 	      struct net_flow_flow *flow)
 {
 	struct ixgbe_adapter *adapter = netdev_priv(dev);
-	struct hw_flow_field_ref *match;
+	struct net_flow_field_ref *match;
 	struct ixgbe_fdir_filter input;
-	struct hw_flow_action *action;
+	struct net_flow_action *action;
 	unsigned char mac[ETH_ALEN];
 	union ixgbe_atr_input mask;
 	int err;
@@ -7866,7 +7866,7 @@ static int ixgbe_flow_table_set_flows(struct net_device *dev,
 	case IXGBE_L2_TABLE:
 		/* TBD write generic table (action/match) verifiers in core */
 		if (match->header != 1 || match->field != 2 ||
-		    match->type != HW_FLOW_FIELD_REF_ATTR_TYPE_U64) {
+		    match->type != NET_FLOW_FIELD_REF_ATTR_TYPE_U64) {
 			e_dev_warn("unknown header/field\n");
 			break;
 		}
@@ -7887,7 +7887,7 @@ static int ixgbe_flow_table_set_flows(struct net_device *dev,
 			break;
 		}
 
-		if (action->args[0].type != HW_FLOW_ACTION_ARG_TYPE_U32) {
+		if (action->args[0].type != NET_FLOW_ACTION_ARG_TYPE_U32) {
 			e_dev_warn("no args expected args!\n");
 		}
 		memcpy(mac,
@@ -8002,10 +8002,10 @@ static int ixgbe_flow_table_get_flows(struct sk_buff *skb,
 		int i, count = 1;
 
 		for (i = 0; i < hw->mac.num_rar_entries; i++) {
-			struct hw_flow_field_ref ref;
-			struct hw_flow_flow flow;
-			struct hw_flow_action action;
-			struct hw_flow_action_arg arg;
+			struct net_flow_field_ref ref;
+			struct net_flow_flow flow;
+			struct net_flow_action action;
+			struct net_flow_action_arg arg;
 
 			if (!(adapter->mac_table[i].state &
 			      IXGBE_MAC_STATE_IN_USE))
@@ -8013,7 +8013,7 @@ static int ixgbe_flow_table_get_flows(struct sk_buff *skb,
 
 			ref.header = 1;
 			ref.field = 2;
-			ref.type = HW_FLOW_FIELD_REF_ATTR_TYPE_U64;
+			ref.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U64;
 
 			memcpy((u8 *)&ref.value_u64,
 			       adapter->mac_table[i].addr, ETH_ALEN);
@@ -8023,7 +8023,7 @@ static int ixgbe_flow_table_get_flows(struct sk_buff *skb,
 			flow.priority = count;
 			flow.matches = &ref;
 
-			arg.type = HW_FLOW_ACTION_ARG_TYPE_U32;
+			arg.type = NET_FLOW_ACTION_ARG_TYPE_U32;
 			memset(arg.name, 0, sizeof(arg.name));
 			arg.value_u32 = 0;
 
@@ -8031,7 +8031,7 @@ static int ixgbe_flow_table_get_flows(struct sk_buff *skb,
 			action.args = &arg;
 			flow.actions =  &action;
 
-			hw_flow_flow_to_nl(skb, &flow, 1, 1, 1);
+			net_flow_flow_to_nl(skb, &flow, 1, 1, 1);
 		}
 	} else if (table == IXGBE_FDIR_TABLE) {
 		struct ixgbe_fdir_filter *rule = NULL;
@@ -8043,17 +8043,17 @@ static int ixgbe_flow_table_get_flows(struct sk_buff *skb,
 		 */
 		hlist_for_each_entry_safe(rule, node2,
 					  &adapter->fdir_filter_list, fdir_node) {
-			struct hw_flow_field_ref *ref;
-			struct hw_flow_flow flow;
-			struct hw_flow_action action;
-			struct hw_flow_action_arg *args;
+			struct net_flow_field_ref *ref;
+			struct net_flow_flow flow;
+			struct net_flow_action action;
+			struct net_flow_action_arg *args;
 
 			int acnt = 0, count = 0, argcnt = 0;
  
-			ref = kcalloc(5, sizeof(struct hw_flow_field_ref), GFP_KERNEL);
+			ref = kcalloc(5, sizeof(struct net_flow_field_ref), GFP_KERNEL);
 			if (!ref)
 				return -ENOMEM;	
-			args = kcalloc(2, sizeof(struct hw_flow_action_arg), GFP_KERNEL);
+			args = kcalloc(2, sizeof(struct net_flow_action_arg), GFP_KERNEL);
 			if (!args) {
 				kfree(ref);
 				return -ENOMEM;
@@ -8071,7 +8071,7 @@ static int ixgbe_flow_table_get_flows(struct sk_buff *skb,
 			if (rule->filter.formatted.src_port) {
 				ref[count].header = 4; 
 				ref[count].field = 1;
-				ref[count].type = HW_FLOW_FIELD_REF_ATTR_TYPE_U16;
+				ref[count].type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16;
 				ref[count].value_u16 = rule->filter.formatted.src_port;
 				ref[count].mask_u16 = mask->formatted.src_port;
 				count++;
@@ -8080,7 +8080,7 @@ static int ixgbe_flow_table_get_flows(struct sk_buff *skb,
 			if (rule->filter.formatted.dst_port) {
 				ref[count].header = 4; 
 				ref[count].field = 2;
-				ref[count].type = HW_FLOW_FIELD_REF_ATTR_TYPE_U16;
+				ref[count].type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16;
 				ref[count].value_u16 = rule->filter.formatted.dst_port;
 				ref[count].mask_u16 = mask->formatted.dst_port;
 				count++;
@@ -8089,7 +8089,7 @@ static int ixgbe_flow_table_get_flows(struct sk_buff *skb,
 			if (rule->filter.formatted.src_ip[0]) {
 				ref[count].header = 3; 
 				ref[count].field = 12;
-				ref[count].type = HW_FLOW_FIELD_REF_ATTR_TYPE_U32;
+				ref[count].type = NET_FLOW_FIELD_REF_ATTR_TYPE_U32;
 				ref[count].value_u32 = rule->filter.formatted.src_ip[0];
 				ref[count].mask_u32 = mask->formatted.src_ip[0];
 				count++;
@@ -8098,7 +8098,7 @@ static int ixgbe_flow_table_get_flows(struct sk_buff *skb,
 			if (rule->filter.formatted.dst_ip[0]) {
 				ref[count].header = 3; 
 				ref[count].field = 13;
-				ref[count].type = HW_FLOW_FIELD_REF_ATTR_TYPE_U32;
+				ref[count].type = NET_FLOW_FIELD_REF_ATTR_TYPE_U32;
 				ref[count].value_u32 = rule->filter.formatted.dst_ip[0];
 				ref[count].mask_u32 = mask->formatted.dst_ip[0];
 				count++;
@@ -8107,7 +8107,7 @@ static int ixgbe_flow_table_get_flows(struct sk_buff *skb,
 			if (rule->filter.formatted.vlan_id) {
 				ref[count].header = 2; 
 				ref[count].field = 3;
-				ref[count].type = HW_FLOW_FIELD_REF_ATTR_TYPE_U16;
+				ref[count].type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16;
 				ref[count].value_u16 = rule->filter.formatted.vlan_id;
 				ref[count].mask_u16 = mask->formatted.vlan_id;
 				count++;
@@ -8116,7 +8116,7 @@ static int ixgbe_flow_table_get_flows(struct sk_buff *skb,
 			if (rule->action == IXGBE_FDIR_DROP_QUEUE) {
 				action.uid = 3;
 			} else  {
-				args[0].type = HW_FLOW_ACTION_ARG_TYPE_U32;
+				args[0].type = NET_FLOW_ACTION_ARG_TYPE_U32;
 				args[0].value_u32 = rule->action;
 
 				action.uid = 2;
@@ -8127,7 +8127,7 @@ static int ixgbe_flow_table_get_flows(struct sk_buff *skb,
 			flow.matches = ref;
 			flow.actions =  &action;
 
-			hw_flow_flow_to_nl(skb, &flow, count, acnt, argcnt);
+			net_flow_flow_to_nl(skb, &flow, count, acnt, argcnt);
 			kfree(ref);
 			kfree(args);
 		}
