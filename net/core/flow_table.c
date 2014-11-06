@@ -44,7 +44,7 @@ const char *net_flow_table_arg_type_str[__NET_FLOW_ACTION_ARG_TYPE_VAL_MAX] = {
 
 static const
 struct nla_policy net_flow_matches_policy[NET_FLOW_FIELD_REF_MAX + 1] = {
-	[NET_FLOW_FIELD_REF] = { .type = NLA_NESTED },
+	[NET_FLOW_FIELD_REF] = { .len = sizeof(struct net_flow_field_ref) },
 };
 
 static const
@@ -67,50 +67,6 @@ struct nla_policy net_flow_table_policy[NET_FLOW_TABLE_ATTR_MAX + 1] = {
 	[NET_FLOW_TABLE_ATTR_ACTIONS]	= { .type = NLA_NESTED },
 	[NET_FLOW_TABLE_ATTR_FLOWS]	= { .type = NLA_NESTED },
 };
-
-static
-int net_flow_field_ref_to_nl(struct sk_buff *skb, struct net_flow_field_ref *f)
-{
-	if (nla_put_u32(skb, NET_FLOW_FIELD_REF_ATTR_HEADER, f->header) ||
-	    nla_put_u32(skb, NET_FLOW_FIELD_REF_ATTR_FIELD, f->field)   ||
-	    nla_put_u32(skb, NET_FLOW_FIELD_REF_ATTR_TYPE, f->type))
-		return -EMSGSIZE;
-
-	switch (f->type) {
-	case NET_FLOW_FIELD_REF_ATTR_TYPE_U8:
-		if (nla_put_u8(skb,
-			       NET_FLOW_FIELD_REF_ATTR_VALUE, f->value_u8) ||
-		    nla_put_u8(skb,
-			       NET_FLOW_FIELD_REF_ATTR_MASK, f->mask_u8))
-			return -EMSGSIZE;
-		break;
-	case NET_FLOW_FIELD_REF_ATTR_TYPE_U16:
-		if (nla_put_u16(skb,
-				NET_FLOW_FIELD_REF_ATTR_VALUE, f->value_u16) ||
-		    nla_put_u16(skb,
-				NET_FLOW_FIELD_REF_ATTR_MASK, f->mask_u16))
-			return -EMSGSIZE;
-		break;
-	case NET_FLOW_FIELD_REF_ATTR_TYPE_U32:
-		if (nla_put_u32(skb,
-				NET_FLOW_FIELD_REF_ATTR_VALUE, f->value_u32) ||
-		    nla_put_u32(skb,
-				NET_FLOW_FIELD_REF_ATTR_MASK, f->mask_u32))
-			return -EMSGSIZE;
-		break;
-	case NET_FLOW_FIELD_REF_ATTR_TYPE_U64:
-		if (nla_put_u64(skb,
-				NET_FLOW_FIELD_REF_ATTR_VALUE, f->value_u64) ||
-		    nla_put_u64(skb,
-				NET_FLOW_FIELD_REF_ATTR_MASK, f->mask_u64))
-			return -EMSGSIZE;
-		break;
-	default:
-		break;
-	}
-
-	return 0;
-}
 
 static int net_flow_act_types_to_nl(struct sk_buff *skb,
 				   struct net_flow_action_arg *args, int argcnt)
@@ -239,15 +195,6 @@ action_put_failure:
 	return -EMSGSIZE;
 }
 
-static const
-struct nla_policy net_flow_field_ref_policy[NET_FLOW_FIELD_REF_ATTR_MAX + 1] = {
-	[NET_FLOW_FIELD_REF_ATTR_HEADER] = { .type = NLA_U32,},
-	[NET_FLOW_FIELD_REF_ATTR_FIELD] = { .type = NLA_U32,},
-	[NET_FLOW_FIELD_REF_ATTR_TYPE] = {.type = NLA_U32,},
-	[NET_FLOW_FIELD_REF_ATTR_VALUE] = {.type = NLA_BINARY, },
-	[NET_FLOW_FIELD_REF_ATTR_MASK] = {.type = NLA_BINARY, },
-};
-
 int net_flow_flow_action_to_nl(struct sk_buff *skb, struct net_flow_action *a, int args )
 {
 	struct nlattr *action = nla_nest_start(skb, NET_FLOW_ACTION);
@@ -283,7 +230,7 @@ nest_put_failure:
 
 int net_flow_flow_to_nl(struct sk_buff *skb, struct net_flow_flow *flow, int mcnt, int acnt, int args)
 {
-	struct nlattr *flows, *matches, *field;
+	struct nlattr *flows, *matches;
 	struct nlattr *actions = NULL; /* must be null to unwind */
 	int err, j, i = 0;
 
@@ -305,10 +252,7 @@ int net_flow_flow_to_nl(struct sk_buff *skb, struct net_flow_flow *flow, int mcn
 		if (!f->header)
 			continue;
 
-		field = nla_nest_start(skb, NET_FLOW_FIELD_REF);
-		if (!field || net_flow_field_ref_to_nl(skb, f))
-			goto matches_put_failure;
-		nla_nest_end(skb, field);
+		nla_put(skb, NET_FLOW_FIELD_REF, sizeof(*f), f);
 	}
 	nla_nest_end(skb, matches);
 
@@ -328,8 +272,6 @@ int net_flow_flow_to_nl(struct sk_buff *skb, struct net_flow_flow *flow, int mcn
 	nla_nest_end(skb, flows);
 	return 0;
 
-matches_put_failure:
-	nla_nest_cancel(skb, matches);
 flows_put_failure:
 	nla_nest_cancel(skb, flows);
 put_failure:
@@ -344,7 +286,6 @@ static int net_flow_table_to_nl(struct net_device *dev,
 	struct nlattr *matches, *flow, *actions;
 	struct net_flow_field_ref *m;
 	net_flow_action_ref *ref;
-	int err;
 
 	flow = NULL; /* must null to get unwind correct */
 
@@ -358,19 +299,8 @@ static int net_flow_table_to_nl(struct net_device *dev,
 	if (!matches)
 		return -EMSGSIZE;
 
-	for (m = t->matches; m->header || m->field; m++) {
-		struct nlattr *match = nla_nest_start(skb, NET_FLOW_FIELD_REF);
-
-		if (!match) {
-			err = -EMSGSIZE;
-			goto match_put_failure;
-		}
-
-		err = net_flow_field_ref_to_nl(skb, m);
-		if (err)
-			goto match_put_failure;
-		nla_nest_end(skb, match);
-	}
+	for (m = t->matches; m->header || m->field; m++)
+		nla_put(skb, NET_FLOW_FIELD_REF, sizeof(*m), m);
 	nla_nest_end(skb, matches);
 
 	actions = nla_nest_start(skb, NET_FLOW_TABLE_ATTR_ACTIONS);
@@ -393,9 +323,6 @@ static int net_flow_table_to_nl(struct net_device *dev,
 		dev->netdev_ops->ndo_bridge_getflows(dev, t->uid, skb);
 	nla_nest_end(skb, flow);
 	return 0;
-match_put_failure:
-	nla_nest_cancel(skb, matches);
-	return err;
 }
 
 int net_flow_tables_to_nl(struct net_device *dev,
@@ -562,44 +489,14 @@ out:
 }
 
 static int nl_to_sw_field_ref(struct net_flow_field_ref *field,
-			      struct nlattr *attr)
+			      struct nlattr *nla)
 {
-	struct nlattr *ref[NET_FLOW_FIELD_REF_ATTR_MAX+1];
-	int err;
-
-	if (nla_type(attr) != NET_FLOW_FIELD_REF) {
+	if (nla_type(nla) != NET_FLOW_FIELD_REF) {
 		pr_warn("%s: error unexpected field\n", __func__);
-		return 0;
+		return -EINVAL;
 	}
 
-	err = nla_parse_nested(ref, NET_FLOW_FIELD_REF_ATTR_MAX,
-			       attr, net_flow_field_ref_policy);
-
-	field->header = nla_get_u32(ref[NET_FLOW_FIELD_REF_ATTR_HEADER]);
-	field->field = nla_get_u32(ref[NET_FLOW_FIELD_REF_ATTR_FIELD]);
-	field->type = nla_get_u32(ref[NET_FLOW_FIELD_REF_ATTR_TYPE]);
-
-	switch (field->type) {
-	case NET_FLOW_FIELD_REF_ATTR_TYPE_U8:
-		field->value_u8 = nla_get_u8(ref[NET_FLOW_FIELD_REF_ATTR_VALUE]);
-		field->mask_u8 = nla_get_u8(ref[NET_FLOW_FIELD_REF_ATTR_MASK]);
-		break;
-	case NET_FLOW_FIELD_REF_ATTR_TYPE_U16:
-		field->value_u16 = nla_get_u16(ref[NET_FLOW_FIELD_REF_ATTR_VALUE]);
-		field->mask_u16 = nla_get_u16(ref[NET_FLOW_FIELD_REF_ATTR_MASK]);
-		break;
-	case NET_FLOW_FIELD_REF_ATTR_TYPE_U32:
-		field->value_u32 = nla_get_u32(ref[NET_FLOW_FIELD_REF_ATTR_VALUE]);
-		field->mask_u32 = nla_get_u32(ref[NET_FLOW_FIELD_REF_ATTR_MASK]);
-		break;
-	case NET_FLOW_FIELD_REF_ATTR_TYPE_U64:
-		field->value_u64 = nla_get_u64(ref[NET_FLOW_FIELD_REF_ATTR_VALUE]);
-		field->mask_u64 = nla_get_u64(ref[NET_FLOW_FIELD_REF_ATTR_MASK]);
-		break;
-	default:
-		return 0;
-	}
-
+	*field = *(struct net_flow_field_ref *) nla_data(nla);
 	return 0;
 }
 
@@ -967,7 +864,7 @@ net_flow_table_graph_to_nl(struct sk_buff *skb, struct net_flow_table_graph_node
 			}
 
 			field = nla_nest_start(skb, NET_FLOW_JUMP_TABLE_FIELD);
-			err = net_flow_field_ref_to_nl(skb, &j->field);
+			err = nla_put(skb, NET_FLOW_FIELD_REF, sizeof(j->field), &j->field);
 			if (err) {
 				printk("%s: warning field ref failed\n", __func__);
 				goto field_put_failure;
