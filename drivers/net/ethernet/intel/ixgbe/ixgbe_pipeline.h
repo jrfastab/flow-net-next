@@ -279,7 +279,7 @@ struct net_flow_table ixgbe_table_list[2] =
 	{
 		.name = "fdir_table",
 		.uid = IXGBE_FDIR_TABLE,
-		.source = 0,
+		.source = 1,
 		.size = 2000,
 		.matches = fdir_matches,
 		.actions = ixgbe_fdir_actions,
@@ -439,7 +439,7 @@ struct net_flow_parser_nodes ixgbe_parse_graph = {
 struct net_flow_jump_table ixgbe_table_node_l2_jump[2] = {
 	{
 		.field = {0},
-		.node = 2,
+		.node = IXGBE_FDIR_TABLE,
 	},
 	{
 		.field = {0},
@@ -448,7 +448,7 @@ struct net_flow_jump_table ixgbe_table_node_l2_jump[2] = {
 };
 
 struct net_flow_table_graph_node ixgbe_table_node_l2 = {
-	.uid = 1,
+	.uid = IXGBE_L2_TABLE,
 	.jump = ixgbe_table_node_l2_jump,
 };
 
@@ -464,7 +464,7 @@ struct net_flow_jump_table ixgbe_table_node_fdir_jump[2] = {
 };
 
 struct net_flow_table_graph_node ixgbe_table_node_fdir = {
-	.uid = 2,
+	.uid = IXGBE_FDIR_TABLE,
 	.jump = ixgbe_table_node_fdir_jump,
 };
 

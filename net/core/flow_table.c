@@ -48,12 +48,12 @@ struct nla_policy net_flow_matches_policy[NET_FLOW_FIELD_REF_MAX + 1] = {
 };
 
 static const
-struct nla_policy net_flow_flow_policy[NET_FLOW_NET_FLOW_ATTR_MAX + 1] = {
-	[NET_FLOW_NET_FLOW_ATTR_TABLE]	= { .type = NLA_U32 },
-	[NET_FLOW_NET_FLOW_ATTR_UID]		= { .type = NLA_U32 },
-	[NET_FLOW_NET_FLOW_ATTR_PRIORITY]	= { .type = NLA_U32 },
-	[NET_FLOW_NET_FLOW_ATTR_MATCHES]	= { .type = NLA_NESTED },
-	[NET_FLOW_NET_FLOW_ATTR_ACTIONS]	= { .type = NLA_NESTED },
+struct nla_policy net_flow_flow_policy[NET_FLOW_ATTR_MAX + 1] = {
+	[NET_FLOW_ATTR_TABLE]	= { .type = NLA_U32 },
+	[NET_FLOW_ATTR_UID]		= { .type = NLA_U32 },
+	[NET_FLOW_ATTR_PRIORITY]	= { .type = NLA_U32 },
+	[NET_FLOW_ATTR_MATCHES]	= { .type = NLA_NESTED },
+	[NET_FLOW_ATTR_ACTIONS]	= { .type = NLA_NESTED },
 };
 
 static const
@@ -238,12 +238,12 @@ int net_flow_flow_to_nl(struct sk_buff *skb, struct net_flow_flow *flow, int mcn
 	if (!flows)
 		goto put_failure;
 
-	if (nla_put_u32(skb, NET_FLOW_NET_FLOW_ATTR_TABLE, flow->table_id) ||
-	    nla_put_u32(skb, NET_FLOW_NET_FLOW_ATTR_UID, flow->uid) ||
-	    nla_put_u32(skb, NET_FLOW_NET_FLOW_ATTR_PRIORITY, flow->priority))
+	if (nla_put_u32(skb, NET_FLOW_ATTR_TABLE, flow->table_id) ||
+	    nla_put_u32(skb, NET_FLOW_ATTR_UID, flow->uid) ||
+	    nla_put_u32(skb, NET_FLOW_ATTR_PRIORITY, flow->priority))
 		goto flows_put_failure;
 
-	matches = nla_nest_start(skb, NET_FLOW_NET_FLOW_ATTR_MATCHES);
+	matches = nla_nest_start(skb, NET_FLOW_ATTR_MATCHES);
 	if (!matches)
 		goto flows_put_failure;
 	for (j = 0; j < mcnt; j++) {
@@ -256,7 +256,7 @@ int net_flow_flow_to_nl(struct sk_buff *skb, struct net_flow_flow *flow, int mcn
 	}
 	nla_nest_end(skb, matches);
 
-	actions = nla_nest_start(skb, NET_FLOW_NET_FLOW_ATTR_ACTIONS);
+	actions = nla_nest_start(skb, NET_FLOW_ATTR_ACTIONS);
 	if (!actions)
 		goto flows_put_failure;
 
@@ -575,7 +575,7 @@ static int nl_to_sw_action(struct net_flow_action *a, struct nlattr *attr)
 
 static int nl_to_sw_flow(struct net_flow_flow *flow, struct nlattr *attr)
 {
-	struct nlattr *f[NET_FLOW_NET_FLOW_ATTR_MAX+1];
+	struct nlattr *f[NET_FLOW_ATTR_MAX+1];
 	struct nlattr *attr2;
 	int rem, err;
 	int count = 0;
@@ -585,21 +585,21 @@ static int nl_to_sw_flow(struct net_flow_flow *flow, struct nlattr *attr)
 		return -EINVAL;
 	}
 
-	err = nla_parse_nested(f, NET_FLOW_NET_FLOW_ATTR_MAX, attr, net_flow_flow_policy);
+	err = nla_parse_nested(f, NET_FLOW_ATTR_MAX, attr, net_flow_flow_policy);
 	if (err < 0) { /* TBD remove warns or at least rate lmit */
 		pr_warn("%s: flow flow attr parse error\n", __func__);
 		return -EINVAL;
 	}
 
-	flow->table_id = nla_get_u32(f[NET_FLOW_NET_FLOW_ATTR_TABLE]);
-	flow->uid = nla_get_u32(f[NET_FLOW_NET_FLOW_ATTR_UID]);
-	flow->priority = nla_get_u32(f[NET_FLOW_NET_FLOW_ATTR_PRIORITY]);
+	flow->table_id = nla_get_u32(f[NET_FLOW_ATTR_TABLE]);
+	flow->uid = nla_get_u32(f[NET_FLOW_ATTR_UID]);
+	flow->priority = nla_get_u32(f[NET_FLOW_ATTR_PRIORITY]);
 
 	flow->matches = NULL;
 	flow->actions = NULL;
 
-	if (f[NET_FLOW_NET_FLOW_ATTR_MATCHES]) {
-		nla_for_each_nested(attr2, f[NET_FLOW_NET_FLOW_ATTR_MATCHES], rem)
+	if (f[NET_FLOW_ATTR_MATCHES]) {
+		nla_for_each_nested(attr2, f[NET_FLOW_ATTR_MATCHES], rem)
 			count++;
 
 		/* Null terminated list of matches */
@@ -609,15 +609,15 @@ static int nl_to_sw_flow(struct net_flow_flow *flow, struct nlattr *attr)
 			return -ENOMEM;
 
 		count = 0;
-		nla_for_each_nested(attr2, f[NET_FLOW_NET_FLOW_ATTR_MATCHES], rem) {
+		nla_for_each_nested(attr2, f[NET_FLOW_ATTR_MATCHES], rem) {
 			nl_to_sw_field_ref(&flow->matches[count], attr2);
 			count++;
 		}
 	}
 
-	if (f[NET_FLOW_NET_FLOW_ATTR_ACTIONS]) {
+	if (f[NET_FLOW_ATTR_ACTIONS]) {
 		count = 0;
-		nla_for_each_nested(attr2, f[NET_FLOW_NET_FLOW_ATTR_ACTIONS], rem)
+		nla_for_each_nested(attr2, f[NET_FLOW_ATTR_ACTIONS], rem)
 			count++;
 
 		/* Null terminated list of actions */
@@ -628,7 +628,7 @@ static int nl_to_sw_flow(struct net_flow_flow *flow, struct nlattr *attr)
 		}
 
 		count = 0;
-		nla_for_each_nested(attr2, f[NET_FLOW_NET_FLOW_ATTR_ACTIONS], rem) {
+		nla_for_each_nested(attr2, f[NET_FLOW_ATTR_ACTIONS], rem) {
 			nl_to_sw_action(&flow->actions[count], attr2);
 			count++;
 		}
@@ -829,17 +829,18 @@ static int net_flow_table_cmd_get_parse_graph(struct sk_buff *skb,
 static int
 net_flow_table_graph_to_nl(struct sk_buff *skb, struct net_flow_table_graph_nodes *g)
 {
-	struct nlattr *nodes, *node, *jump, *jump_node, *field;
+	struct nlattr *nodes, *node, *jump, *jump_node;
 	struct net_flow_table_graph_node *n;
-	int err, i = 0;
+	int err, i = 0, j = 0;
 
 	nodes = nla_nest_start(skb, NET_FLOW_TABLE_GRAPH);
 	if (!nodes)
 		return -EMSGSIZE;
 
 	for (n = g->nodes[i]; n->uid; n = g->nodes[++i]) {
-		struct net_flow_jump_table *j;
+		struct net_flow_jump_table *jnode;
 
+		printk("%s: add node %i\n", __func__, n->uid);
 		node = nla_nest_start(skb, NET_FLOW_TABLE_GRAPH_NODE);
 		if (!node)
 			goto out;
@@ -851,25 +852,24 @@ net_flow_table_graph_to_nl(struct sk_buff *skb, struct net_flow_table_graph_node
 		if (!jump)
 			goto out;	
 
-		for (j = &n->jump[0]; j->node; j++) {
+		for (j = 0, jnode = &n->jump[j]; jnode->node; jnode = &n->jump[++j]) {
 			jump_node = nla_nest_start(skb, NET_FLOW_JUMP_TABLE_ENTRY);
 			if (!jump_node)
 				goto jump_put_failure;
 
-			printk("%s: add jump node\n", __func__);
+			printk("\t%s: add jump node %i\n", __func__, jnode->node);
 
-			if (nla_put_u32(skb, NET_FLOW_JUMP_TABLE_NODE, j->node)) {
+			if (nla_put_u32(skb, NET_FLOW_JUMP_TABLE_NODE, jnode->node)) {
 				printk("%s: table node failed\n", __func__);
 				goto jump_node_put_failure;
 			}
 
-			field = nla_nest_start(skb, NET_FLOW_JUMP_TABLE_FIELD);
-			err = nla_put(skb, NET_FLOW_FIELD_REF, sizeof(j->field), &j->field);
+			err = nla_put(skb, NET_FLOW_JUMP_TABLE_FIELD_REF,
+				      sizeof(jnode->field), &jnode->field);
 			if (err) {
 				printk("%s: warning field ref failed\n", __func__);
-				goto field_put_failure;
+				goto jump_node_put_failure;
 			}
-			nla_nest_end(skb, field);
 			nla_nest_end(skb, jump_node);
 		}
 
@@ -879,8 +879,6 @@ net_flow_table_graph_to_nl(struct sk_buff *skb, struct net_flow_table_graph_node
 
 	nla_nest_end(skb, nodes);
 	return 0;
-field_put_failure:
-	nla_nest_cancel(skb, field);
 jump_node_put_failure:
 	nla_nest_cancel(skb, jump_node);
 jump_put_failure:
