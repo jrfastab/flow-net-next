@@ -740,58 +740,6 @@ static int nl_to_sw_flow(struct net_flow_flow *flow, struct nlattr *attr)
 	return 0;
 }
 
-int nl_to_sw_tables(struct net_flow_tables *flow, struct nlattr *t)
-{
-	struct nlattr *attr0, *attr1;
-	struct nlattr *tb[NET_FLOW_TABLE_ATTR_MAX+1];
-	struct net_flow_table *table;
-	int j, i = 0;
-	int rem0, rem1;
-
-	nla_for_each_nested(attr0, t, rem0)
-		i++;
-
-	flow->tables = kcalloc(i, sizeof(struct net_flow_table), GFP_KERNEL);
-	if (!flow->tables)
-		return -ENOMEM;
-	flow->table_sz = i;
-
-	table = flow->tables;
-
-	i = 0;
-	nla_for_each_nested(attr0, t, rem0) {
-		nla_parse_nested(tb, NET_FLOW_TABLE_ATTR_MAX, attr0, net_flow_table_policy);
-
-		if (!table) {
-			pr_warn("%s: no table\n", __func__);
-			continue;
-		}
-
-		if (tb[NET_FLOW_TABLE_ATTR_NAME])
-			nla_strlcpy(table[i].name, tb[NET_FLOW_TABLE_ATTR_NAME], IFNAMSIZ);
-
-		table[i].uid = nla_get_u32(tb[NET_FLOW_TABLE_ATTR_UID]);
-
-		j = 0;
-		nla_for_each_nested(attr1, tb[NET_FLOW_TABLE_ATTR_FLOWS], rem1)
-			j++;
-
-		table[i].flows = kcalloc(j, sizeof(struct net_flow_table),
-					    GFP_KERNEL);
-		j = 0;
-		nla_for_each_nested(attr1,
-				    tb[NET_FLOW_TABLE_ATTR_FLOWS], rem1) {
-			nl_to_sw_flow(&table[i].flows[j], attr1);
-			j++;
-		}
-		i++;
-		table++;
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL(nl_to_sw_tables);
-
 static void kfree_flow(struct net_flow_flow *f)
 {
 	if (!f)
