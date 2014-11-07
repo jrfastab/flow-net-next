@@ -606,8 +606,120 @@ static struct net_device *net_flow_table_get_dev(struct genl_info *info)
 	return dev_get_by_index(net, ifindex);
 }
 
+static int net_flow_get_table(struct net_flow_table *table, struct nlattr *nla)
+{
+	struct nlattr *tbl[NET_FLOW_TABLE_ATTR_MAX+1];
+	struct nlattr *i;
+	int cnt, rem, err;
+
+	err = nla_parse_nested(tbl, NET_FLOW_TABLE_ATTR_MAX, nla, net_flow_table_policy);
+	if (err)
+		return err;
+
+	if (tbl[NET_FLOW_TABLE_ATTR_NAME])
+		nla_strlcpy(table->name, tbl[NET_FLOW_TABLE_ATTR_NAME], IFNAMSIZ - 1);
+
+	table->uid = tbl[NET_FLOW_TABLE_ATTR_UID] ?
+		     nla_get_u32(tbl[NET_FLOW_TABLE_ATTR_UID]) : 0;
+
+	table->source = tbl[NET_FLOW_TABLE_ATTR_SOURCE] ?
+			nla_get_u32(tbl[NET_FLOW_TABLE_ATTR_SOURCE]) : 0;
+
+	table->size = tbl[NET_FLOW_TABLE_ATTR_SIZE] ?
+		      nla_get_u32(tbl[NET_FLOW_TABLE_ATTR_SIZE]) : 0;
+
+	if (tbl[NET_FLOW_TABLE_ATTR_MATCHES]) {
+		cnt = 0;
+		nla_for_each_nested(i, tbl[NET_FLOW_TABLE_ATTR_MATCHES], rem)
+			cnt++;
+
+		/* Null terminated list of matches */
+		table->matches = kcalloc(cnt + 1,
+					 sizeof(struct net_flow_field_ref), GFP_KERNEL);
+		if (!table->matches)
+			return -ENOMEM;
+
+		cnt = 0;
+		nla_for_each_nested(i, tbl[NET_FLOW_TABLE_ATTR_MATCHES], rem) {
+			nl_to_sw_field_ref(&table->matches[cnt], i);
+			cnt++;
+		}
+	}
+
+	if (tbl[NET_FLOW_TABLE_ATTR_ACTIONS]) {
+		cnt = 0;
+		nla_for_each_nested(i, tbl[NET_FLOW_TABLE_ATTR_ACTIONS], rem)
+			cnt++;
+
+		table->actions = kzalloc((cnt + 1) * sizeof (struct net_flow_field_ref), GFP_KERNEL);
+		if (!table->actions)
+			goto out;
+
+		cnt = 0;
+		nla_for_each_nested(i, tbl[NET_FLOW_TABLE_ATTR_ACTIONS], rem) {
+			table->actions[cnt] = nla_get_u32(i);
+			cnt++;
+		}
+	}
+
+	return 0;
+out:
+	kfree(table->matches);
+	return -ENOMEM;
+}
+
+static int net_flow_table_cmd_create_tables(struct sk_buff *skb,
+					    struct genl_info *info)
+{
+	struct net_device *dev;
+	struct nlattr *tattr;
+	int rem, err;
+
+	dev = net_flow_table_get_dev(info);
+	if (!dev)
+		return -EINVAL;
+
+	if (!dev->netdev_ops->ndo_flow_table_create_table) {
+		dev_put(dev);
+		return -EOPNOTSUPP;
+	}
+
+	if (!info->attrs[NET_FLOW_IDENTIFIER_TYPE] ||
+	    !info->attrs[NET_FLOW_IDENTIFIER] ||
+	    !info->attrs[NET_FLOW_TABLES]) {
+		printk("%s: received table set cmd without preamble\n", __func__);
+		goto out;
+	}
+
+	nla_for_each_nested(tattr, info->attrs[NET_FLOW_TABLES], rem) {
+		struct net_flow_table this = {.name = "", .uid = 0,};
+
+		err = net_flow_get_table(&this, tattr);
+		if (err)
+			goto out;
+
+		dev->netdev_ops->ndo_flow_table_create_table(dev, &this);
+
+		/* Cleanup table */
+		kfree(this.matches);
+		kfree(this.actions);
+	}
+
+	dev_put(dev);
+	return 0;
+out:
+	dev_put(dev);
+	return -EINVAL;
+}
+
+static int net_flow_table_cmd_destroy_tables(struct sk_buff *skb,
+					     struct genl_info *info)
+{
+	return -EOPNOTSUPP;
+}
+
 static int net_flow_table_cmd_get_tables(struct sk_buff *skb,
-				     struct genl_info *info)
+					 struct genl_info *info)
 {
 	struct net_flow_tables *tables;
 	struct net_device *dev;
@@ -924,7 +1036,7 @@ struct nla_policy net_flow_table_flows_policy[NET_FLOW_TABLE_FLOWS_MAX + 1] = {
 };
 
 static int net_flow_table_cmd_get_flows(struct sk_buff *skb,
-				    struct genl_info *info)
+					struct genl_info *info)
 {
 	struct nlattr *tb[NET_FLOW_TABLE_FLOWS_MAX+1];
 	int err, table, min = -1, max = -1;
@@ -974,17 +1086,21 @@ out:
 	return -EINVAL;
 }
 
-static int net_flow_table_cmd_set_flows(struct sk_buff *skb,
+static int net_flow_table_cmd_flows(struct sk_buff *skb,
 				    struct genl_info *info)
 {
 	struct nlattr *tb[NET_FLOW_TABLE_FLOWS_MAX+1];
 	struct nlattr *flow;
 	int rem, err;
 	struct net_device *dev;
+	int cmd = info->genlhdr->cmd;
 
 	dev = net_flow_table_get_dev(info);
 	if (!dev)
 		return -EINVAL;
+
+	if (cmd != NET_FLOW_TABLE_CMD_SET_FLOWS)
+		return -EOPNOTSUPP; /* TBD del, update */
 
 	if (!dev->netdev_ops->ndo_flow_table_set_flows) {
 		dev_put(dev);
@@ -1066,8 +1182,28 @@ static const struct genl_ops net_flow_table_nl_ops[] = {
 	},
 	{
 		.cmd = NET_FLOW_TABLE_CMD_SET_FLOWS,
-		.doit = net_flow_table_cmd_set_flows,
+		.doit = net_flow_table_cmd_flows,
 		//.policy = net_flow_table_cmd_set_flows_policy,
+		.flags = GENL_ADMIN_PERM,
+	},
+	{
+		.cmd = NET_FLOW_TABLE_CMD_DEL_FLOWS,
+		.doit = net_flow_table_cmd_flows,
+		.flags = GENL_ADMIN_PERM,
+	},
+	{
+		.cmd = NET_FLOW_TABLE_CMD_UPDATE_FLOWS,
+		.doit = net_flow_table_cmd_flows,
+		.flags = GENL_ADMIN_PERM,
+	},
+	{
+		.cmd = NET_FLOW_TABLE_CMD_CREATE_TABLE,
+		.doit = net_flow_table_cmd_create_tables,
+		.flags = GENL_ADMIN_PERM,
+	},
+	{
+		.cmd = NET_FLOW_TABLE_CMD_DESTROY_TABLE,
+		.doit = net_flow_table_cmd_destroy_tables,
 		.flags = GENL_ADMIN_PERM,
 	},
 };
