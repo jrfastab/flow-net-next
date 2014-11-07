@@ -840,7 +840,6 @@ net_flow_table_graph_to_nl(struct sk_buff *skb, struct net_flow_table_graph_node
 	for (n = g->nodes[i]; n->uid; n = g->nodes[++i]) {
 		struct net_flow_jump_table *jnode;
 
-		printk("%s: add node %i\n", __func__, n->uid);
 		node = nla_nest_start(skb, NET_FLOW_TABLE_GRAPH_NODE);
 		if (!node)
 			goto out;
@@ -856,8 +855,6 @@ net_flow_table_graph_to_nl(struct sk_buff *skb, struct net_flow_table_graph_node
 			jump_node = nla_nest_start(skb, NET_FLOW_JUMP_TABLE_ENTRY);
 			if (!jump_node)
 				goto jump_put_failure;
-
-			printk("\t%s: add jump node %i\n", __func__, jnode->node);
 
 			if (nla_put_u32(skb, NET_FLOW_JUMP_TABLE_NODE, jnode->node)) {
 				printk("%s: table node failed\n", __func__);
