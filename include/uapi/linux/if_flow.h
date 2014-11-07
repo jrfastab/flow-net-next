@@ -46,11 +46,8 @@
  *	     [NET_FLOW_ACTION_ATTR_UID]
  *	     [NET_FLOW_ACTION_ATTR_SIGNATURE]
  *	       	 [NET_FLOW_ACTION_ARG]
- *	         	[NET_FLOW_ACTION_ARG_NAME]
- *        		[NET_FLOW_ACTION_ARG_TYPE]
- *	         	[NET_FLOW_ACTION_ARG_VALUE]
  *	         [NET_FLOW_ACTION_ARG]
- *	           [...]
+ *	         [...]
  *	   [NET_FLOW_ACTION]
  *	     [...]
  *	   [...]
@@ -81,16 +78,13 @@
  * [NET_FLOW_TABLE_ACTIONS]
  *   [NET_FLOW_TABLE_ATTR_ACTIONS]
  *	[NET_FLOW_ACTION]
- *	[NET_FLOW_ACTION_ATTR_NAME]
- *	[NET_FLOW_ACTION_ATTR_UID]
- *	[NET_FLOW_ACTION_ATTR_SIGNATURE]
+ *	  [NET_FLOW_ACTION_ATTR_NAME]
+ *	  [NET_FLOW_ACTION_ATTR_UID]
+ *	  [NET_FLOW_ACTION_ATTR_SIGNATURE]
  *	       	 [NET_FLOW_ACTION_ARG]
- *	         	[NET_FLOW_ACTION_ARG_NAME]
- *        		[NET_FLOW_ACTION_ARG_TYPE]
- *	         	[NET_FLOW_ACTION_ARG_VALUE]
  *	         [NET_FLOW_ACTION_ARG]
- *	           [...]
- *	   [NET_FLOW_ACTION]
+ *               [...]
+ *	[NET_FLOW_ACTION]
  *	     [...]
  *
  * Parser definition used to unambiguously define match headers.
@@ -139,9 +133,6 @@
  *	         [NET_FLOW_ACTION_ATTR_UID]
  *	         [NET_FLOW_ACTION_ATTR_SIGNATURE]
  *	       	   [NET_FLOW_ACTION_ARG]
- *	         	[NET_FLOW_ACTION_ARG_NAME]
- *	         	[NET_FLOW_ACTION_ARG_TYPE]
- *	         	[NET_FLOW_ACTION_ARG_VALUE]
  *	           [...]
  *	       [NET_FLOW_ACTION]
  *	         [..]
@@ -169,9 +160,6 @@
  *	         [NET_FLOW_ACTION_ATTR_UID]
  *	         [NET_FLOW_ACTION_ATTR_SIGNATURE]
  *	       	   [NET_FLOW_ACTION_ARG]
- *	         	[NET_FLOW_ACTION_ARG_NAME]
- *	         	[NET_FLOW_ACTION_ARG_TYPE]
- *	         	[NET_FLOW_ACTION_ARG_VALUE]
  *	           [NET_FLOW_ACTION_ARG]
  *	             [...]
  *	       [NET_FLOW_ACTION]
@@ -296,15 +284,6 @@ enum {
 	NET_FLOW_FIELD_REF_ATTR_TYPE_U64,
 	/* Need more types for ether.addrs, ip.addrs, ... */
 };
-
-enum {
-	NET_FLOW_ACTION_ARG_TYPE_UNSPEC,
-	NET_FLOW_ACTION_ARG_NAME,
-	NET_FLOW_ACTION_ARG_TYPE,
-	NET_FLOW_ACTION_ARG_VALUE,
-	__NET_FLOW_ACTION_ARG_TYPE_MAX
-};
-#define NET_FLOW_ACTION_ARG_TYPE_MAX (__NET_FLOW_ACTION_ARG_TYPE_MAX - 1)
 
 enum net_flow_action_arg_type {
 	NET_FLOW_ACTION_ARG_TYPE_NULL,

@@ -71,59 +71,16 @@ struct nla_policy net_flow_table_policy[NET_FLOW_TABLE_ATTR_MAX + 1] = {
 static int net_flow_act_types_to_nl(struct sk_buff *skb,
 				   struct net_flow_action_arg *args, int argcnt)
 {
-	struct nlattr *arg;
-	int i;
+	int i, err;
 
 	for (i = 0; i < argcnt; i++) {
 		struct net_flow_action_arg *this = &args[i];
 
-		arg = nla_nest_start(skb, NET_FLOW_ACTION_ARG);
-		if (!arg)
-			goto arg_put_failure;
-
-		if (this->type == NET_FLOW_ACTION_ARG_TYPE_NULL)
-			goto next_arg;
-
-		if (this->name &&
-		    nla_put_string(skb, NET_FLOW_ACTION_ARG_NAME, this->name))
-			goto errout;
-
-		if (nla_put_u32(skb, NET_FLOW_ACTION_ARG_TYPE, this->type))
-			goto errout;
-
-		switch (this->type) {
-		case NET_FLOW_ACTION_ARG_TYPE_U8:
-			if (nla_put_u8(skb,
-				       NET_FLOW_ACTION_ARG_VALUE, this->value_u8))
-				goto errout;
-			break;
-		case NET_FLOW_ACTION_ARG_TYPE_U16:
-			if (nla_put_u16(skb,
-					NET_FLOW_ACTION_ARG_VALUE, this->value_u16))
-				goto errout;
-			break;
-		case NET_FLOW_ACTION_ARG_TYPE_U32:
-			if (nla_put_u32(skb,
-					NET_FLOW_ACTION_ARG_VALUE, this->value_u32))
-				goto errout;
-			break;
-		case NET_FLOW_ACTION_ARG_TYPE_U64:
-			if (nla_put_u64(skb,
-					NET_FLOW_ACTION_ARG_VALUE, this->value_u64))
-				goto errout;
-			break;
-		default:
-			break;
-		}
-next_arg:
-		nla_nest_end(skb, arg);
+		err = nla_put(skb, NET_FLOW_ACTION_ARG, sizeof(*this), this);
+		if (err)
+			return -EMSGSIZE;
 	}
-
 	return 0;
-errout:
-	nla_nest_cancel(skb, arg);
-arg_put_failure:
-	return -EMSGSIZE;
 }
 
 static const
@@ -500,17 +457,10 @@ static int nl_to_sw_field_ref(struct net_flow_field_ref *field,
 	return 0;
 }
 
-static const
-struct nla_policy net_flow_action_arg_policy[NET_FLOW_ACTION_ATTR_MAX + 1] = {
-	[NET_FLOW_ACTION_ARG_NAME] = {.type = NLA_STRING, .len = IFNAMSIZ-1 },
-	[NET_FLOW_ACTION_ARG_TYPE] = {.type = NLA_U32 },
-	[NET_FLOW_ACTION_ARG_VALUE] = {.type = NLA_BINARY, },
-};
-
 static int nl_to_sw_action(struct net_flow_action *a, struct nlattr *attr)
 {
 	struct nlattr *act[NET_FLOW_ACTION_ATTR_MAX+1];
-	struct nlattr *args, *arg[NET_FLOW_ACTION_ARG_TYPE_MAX+1];
+	struct nlattr *args;
 	int rem;
 	int err, count = 0;
 
@@ -537,38 +487,7 @@ static int nl_to_sw_action(struct net_flow_action *a, struct nlattr *attr)
 			continue;
 		}
 
-		nla_parse_nested(arg, NET_FLOW_ACTION_ARG_TYPE_MAX,
-				 args, net_flow_action_arg_policy);
-
-		if (!arg[NET_FLOW_ACTION_ARG_TYPE] ||
-		    !arg[NET_FLOW_ACTION_ARG_VALUE]) {
-			pr_warn("%s: expected action type/value\n", __func__);
-			continue;
-		}
-
-		a->args[count].type = nla_get_u32(arg[NET_FLOW_ACTION_ARG_TYPE]);
-
-		switch (a->args[count].type) {
-		case NET_FLOW_ACTION_ARG_TYPE_U8:
-			a->args[count].value_u8 =
-				nla_get_u8(arg[NET_FLOW_ACTION_ARG_VALUE]);
-			break;
-		case NET_FLOW_ACTION_ARG_TYPE_U16:
-			a->args[count].value_u16 =
-				nla_get_u16(arg[NET_FLOW_ACTION_ARG_VALUE]);
-			break;
-		case NET_FLOW_ACTION_ARG_TYPE_U32:
-			a->args[count].value_u32 =
-				nla_get_u32(arg[NET_FLOW_ACTION_ARG_VALUE]);
-			break;
-		case NET_FLOW_ACTION_ARG_TYPE_U64:
-			a->args[count].value_u64 =
-				nla_get_u64(arg[NET_FLOW_ACTION_ARG_VALUE]);
-			break;
-		default:
-			break;
-		}
-		count++;
+		a->args[count] = *(struct net_flow_action_arg *) nla_data(args);
 	}
 	return 0;
 }
