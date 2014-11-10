@@ -1114,22 +1114,18 @@ static int net_flow_table_cmd_flows(struct sk_buff *skb,
 		goto out;
 	}
 
-	err = nla_parse_nested(tb, NET_FLOW_TABLE_FLOWS_MAX,
-			       info->attrs[NET_FLOW_FLOWS],
-			       net_flow_table_flows_policy);
-	if (err) {
-		printk("%s: table flows parse error\n", __func__);
-		goto out;
-	}
-
-	nla_for_each_nested(flow, tb[NET_FLOW_TABLE_FLOWS_FLOWS], rem) {
+	nla_for_each_nested(flow, info->attrs[NET_FLOW_FLOWS], rem) {
 		struct net_flow_flow this;
 
 		err = nl_to_sw_flow(&this, flow);
 		if (err)
 			goto out;
 
-		dev->netdev_ops->ndo_flow_table_set_flows(dev, &this);
+		err = dev->netdev_ops->ndo_flow_table_set_flows(dev, &this);
+		if (err) {
+			printk("err from ndo %i\n", err);
+			goto out;
+		}
 
 		/* Cleanup flow */
 		kfree(this.matches);
