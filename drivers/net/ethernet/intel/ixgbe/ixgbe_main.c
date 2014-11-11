@@ -8031,7 +8031,7 @@ static int ixgbe_flow_table_get_flows(struct sk_buff *skb,
 			action.args = &arg;
 			flow.actions =  &action;
 
-			net_flow_flow_to_nl(skb, &flow, 1, 1, 1);
+			net_flow_put_flow(skb, &flow, 1, 1, 1);
 		}
 	} else if (table == IXGBE_FDIR_TABLE) {
 		struct ixgbe_fdir_filter *rule = NULL;
@@ -8127,7 +8127,7 @@ static int ixgbe_flow_table_get_flows(struct sk_buff *skb,
 			flow.matches = ref;
 			flow.actions =  &action;
 
-			net_flow_flow_to_nl(skb, &flow, count, acnt, argcnt);
+			net_flow_put_flow(skb, &flow, count, acnt, argcnt);
 			kfree(ref);
 			kfree(args);
 		}
