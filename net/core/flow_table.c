@@ -69,14 +69,13 @@ struct nla_policy net_flow_table_policy[NET_FLOW_TABLE_ATTR_MAX + 1] = {
 };
 
 static int net_flow_put_act_types(struct sk_buff *skb,
-				  struct net_flow_action_arg *args, int argcnt)
+				  struct net_flow_action_arg *args)
 {
 	int i, err;
 
-	for (i = 0; i < argcnt; i++) {
-		struct net_flow_action_arg *this = &args[i];
-
-		err = nla_put(skb, NET_FLOW_ACTION_ARG, sizeof(*this), this);
+	for (i = 0; args[i].type; i++) {
+		err = nla_put(skb, NET_FLOW_ACTION_ARG,
+			      sizeof(struct net_flow_action_arg), &args[i]);
 		if (err)
 			return -EMSGSIZE;
 	}
@@ -108,7 +107,7 @@ static int net_flow_put_action(struct sk_buff *skb, struct net_flow_action *a)
 		if (!nest)
 			goto nest_put_failure;
 
-		err = net_flow_put_act_types(skb, a->args, args);
+		err = net_flow_put_act_types(skb, a->args);
 		if (err) {
 			nla_nest_cancel(skb, nest);
 			return err;
@@ -152,37 +151,36 @@ action_put_failure:
 	return -EMSGSIZE;
 }
 
-int net_flow_put_flow_action(struct sk_buff *skb, struct net_flow_action *a, int args )
+int net_flow_put_flow_action(struct sk_buff *skb, struct net_flow_action *a)
 {
-	struct nlattr *action = nla_nest_start(skb, NET_FLOW_ACTION);
-	struct nlattr *nest;
-	int err = 0;
+	struct nlattr *action, *sigs;
+	int i, err = 0;
 
+	action = nla_nest_start(skb, NET_FLOW_ACTION);
 	if (!action)
 		return -EMSGSIZE;
 
 	if (nla_put_u32(skb, NET_FLOW_ACTION_ATTR_UID, a->uid))
 		return -EMSGSIZE;
 
-	if (args > 0) {
-		nest = nla_nest_start(skb, NET_FLOW_ACTION_ATTR_SIGNATURE);
-		if (!nest)
-			goto nest_put_failure;
+	for (i = 0; a[i].uid; i++) {
+		sigs = nla_nest_start(skb, NET_FLOW_ACTION_ATTR_SIGNATURE);
+		if (!sigs) {
+			nla_nest_cancel(skb, action);
+			return -EMSGSIZE;
+		}
 
-		err = net_flow_put_act_types(skb, a->args, args);
+		err = net_flow_put_act_types(skb, a[i].args);
 		if (err) {
 			nla_nest_cancel(skb, action);
-			nla_nest_cancel(skb, nest);
+			nla_nest_cancel(skb, sigs);
 			return err;
 		}
-		nla_nest_end(skb, nest);
+		nla_nest_end(skb, sigs);
 	}
 
 	nla_nest_end(skb, action);
 	return 0;
-nest_put_failure:
-	nla_nest_cancel(skb, action);
-	return -EMSGSIZE;
 }
 
 int net_flow_put_flow(struct sk_buff *skb, struct net_flow_flow *flow, int mcnt, int acnt, int args)
@@ -218,7 +216,7 @@ int net_flow_put_flow(struct sk_buff *skb, struct net_flow_flow *flow, int mcnt,
 		goto flows_put_failure;
 
 	for (i = 0; i < acnt; i++) {
-		err = net_flow_put_flow_action(skb, &flow->actions[i], args);
+		err = net_flow_put_flow_action(skb, &flow->actions[i]);
 		if (err) {
 			nla_nest_cancel(skb, actions);
 			goto flows_put_failure;
