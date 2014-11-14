@@ -199,7 +199,7 @@ enum {
 
 /**
  * @struct net_flow_header
- * @brief defines a match (header/field) an endpoint can parse
+ * @brief defines a match (header/field) an endpoint can use 
  *
  * @uid unique identifier for header
  * @field_sz number of fields are in the set
@@ -464,12 +464,12 @@ struct net_flow_offset {
 };
 
 enum {
-	NET_FLOW_PARSER_NODE_SET_ATTR_CURRENT_UNSPEC,
-	NET_FLOW_PARSER_NODE_SET_ATTR_CURRENT_OFFSET,
-	NET_FLOW_PARSER_NODE_SET_ATTR_CURRENT_LENGTH,
-	__NET_FLOW_PARSER_NODE_SET_ATTR_CURRENT_MAX,
+	NET_FLOW_HEADER_NODE_SET_ATTR_CURRENT_UNSPEC,
+	NET_FLOW_HEADER_NODE_SET_ATTR_CURRENT_OFFSET,
+	NET_FLOW_HEADER_NODE_SET_ATTR_CURRENT_LENGTH,
+	__NET_FLOW_HEADER_NODE_SET_ATTR_CURRENT_MAX,
 };
-#define NET_FLOW_PARSER_NODE_SET_ATTR_CURRENT_MAX (__NET_FLOW_PARSER_NODE_SET_ATTR_CURRENT_MAX - 1)
+#define NET_FLOW_HEADER_NODE_SET_ATTR_CURRENT_MAX (__NET_FLOW_HEADER_NODE_SET_ATTR_CURRENT_MAX - 1)
 
 union net_flow_set_un {
 	int value;
@@ -478,18 +478,18 @@ union net_flow_set_un {
 };
 
 enum {
-	NET_FLOW_PARSER_NODE_SET_ATTR_UNSPEC,
-	NET_FLOW_PARSER_NODE_SET_ATTR_VALUE,
-	NET_FLOW_PARSER_NODE_SET_ATTR_REF,
-	NET_FLOW_PARSER_NODE_SET_ATTR_CURRENT,
-	__NET_FLOW_PARSER_NODE_SET_ATTR_MAX,
+	NET_FLOW_HEADER_NODE_SET_ATTR_UNSPEC,
+	NET_FLOW_HEADER_NODE_SET_ATTR_VALUE,
+	NET_FLOW_HEADER_NODE_SET_ATTR_REF,
+	NET_FLOW_HEADER_NODE_SET_ATTR_CURRENT,
+	__NET_FLOW_HEADER_NODE_SET_ATTR_MAX,
 };
-#define NET_FLOW_PARSER_NODE_SET_ATTR_MAX (__NET_FLOW_PARSER_NODE_SET_ATTR_MAX - 1)
+#define NET_FLOW_HEADER_NODE_SET_ATTR_MAX (__NET_FLOW_HEADER_NODE_SET_ATTR_MAX - 1)
 
 enum net_flow_set_type {
-	NET_FLOW_PARSER_SET_TYPE_VALUE,
-	NET_FLOW_PARSER_SET_TYPE_REF,
-	NET_FLOW_PARSER_SET_TYPE_CURRENT,
+	NET_FLOW_HEADER_SET_TYPE_VALUE,
+	NET_FLOW_HEADER_SET_TYPE_REF,
+	NET_FLOW_HEADER_SET_TYPE_CURRENT,
 };
 
 struct net_flow_set {
@@ -499,22 +499,22 @@ struct net_flow_set {
 };
 
 enum {
-	NET_FLOW_PARSER_NODE_SET_UNSPEC,
-	NET_FLOW_PARSER_NODE_SET_REF,
-	NET_FLOW_PARSER_NODE_SET_TYPE,
-	NET_FLOW_PARSER_NODE_SET_ATTR,
-	__NET_FLOW_PARSER_NODE_SET_MAX,
+	NET_FLOW_HEADER_NODE_SET_UNSPEC,
+	NET_FLOW_HEADER_NODE_SET_REF,
+	NET_FLOW_HEADER_NODE_SET_TYPE,
+	NET_FLOW_HEADER_NODE_SET_ATTR,
+	__NET_FLOW_HEADER_NODE_SET_MAX,
 };
-#define NET_FLOW_PARSER_NODE_SET_MAX (__NET_FLOW_PARSER_NODE_SET_MAX - 1)
+#define NET_FLOW_HEADER_NODE_SET_MAX (__NET_FLOW_HEADER_NODE_SET_MAX - 1)
 
 typedef int net_flow_header_ref;
 
 enum {
-	NET_FLOW_PARSER_NODE_HDRS_UNSPEC,
-	NET_FLOW_PARSER_NODE_HDRS_REF,
-	NET_FLOW_PARSER_NODE_HDRS_MAX,
+	NET_FLOW_HEADER_NODE_HDRS_UNSPEC,
+	NET_FLOW_HEADER_NODE_HDRS_REF,
+	NET_FLOW_HEADER_NODE_HDRS_MAX,
 };
-#define NET_FLOW_PARSER_NODE_HDRS_MAX (__NET_FLOW_PARSER_NODE_HDRS_MAX - 1)
+#define NET_FLOW_HEADER_NODE_HDRS_MAX (__NET_FLOW_HEADER_NODE_HDRS_MAX - 1)
 
 struct net_flow_jump_table {
 	struct net_flow_field_ref field;
@@ -537,12 +537,14 @@ enum {
 };
 #define NET_FLOW_JUMP_TABLE_MAX (__NET_FLOW_JUMP_TABLE_MAX - 1)
 
-/* net_flow_parser_node
- * @flwo_header_ref : identify the hdrs that are parsed in this node
+/* net_flow_header_node: node in a header graph of header fields.
+ *
+ * @uid : unique id of the graph node
+ * @flwo_header_ref : identify the hdrs that can handled by this node
  * @net_flow_set : identify if any metadata fields are set by parser
  * @net_flow_jump_table : give a case jump statement
  */
-struct net_flow_parser_node {
+struct net_flow_header_node {
 	int uid;
 	net_flow_header_ref *hdrs;
 	struct net_flow_set *sets;
@@ -550,27 +552,14 @@ struct net_flow_parser_node {
 };
 
 enum {
-	NET_FLOW_PARSER_NODE_UNSPEC,
-	NET_FLOW_PARSER_NODE_UID,
-	NET_FLOW_PARSER_NODE_HDRS,
-	NET_FLOW_PARSER_NODE_SETS,
-	NET_FLOW_PARSER_NODE_JUMP,
-	__NET_FLOW_PARSER_NODE_MAX,
+	NET_FLOW_HEADER_NODE_UNSPEC,
+	NET_FLOW_HEADER_NODE_UID,
+	NET_FLOW_HEADER_NODE_HDRS,
+	NET_FLOW_HEADER_NODE_SETS,
+	NET_FLOW_HEADER_NODE_JUMP,
+	__NET_FLOW_HEADER_NODE_MAX,
 };
-#define NET_FLOW_PARSER_NODE_MAX (__NET_FLOW_PARSER_NODE_MAX - 1)
-
-struct net_flow_parser_nodes {
-	int node_count;
-	struct net_flow_parser_node **nodes;
-};
-
-enum {
-	NET_FLOW_PARSER_UNSPEC,
-	NET_FLOW_PARSER_NODE_COUNT,
-	NET_FLOW_PARSER_NODES,
-	__NET_FLOW_PARSER_MAX,
-};
-#define NET_FLOW_PARSER_MAX (__NET_FLOW_PARSER_MAX - 1)
+#define NET_FLOW_HEADER_NODE_MAX (__NET_FLOW_HEADER_NODE_MAX - 1)
 
 struct net_flow_table_graph_node {
 	int uid;
@@ -621,7 +610,7 @@ enum {
 	NET_FLOW_TABLE_CMD_GET_TABLES,
 	NET_FLOW_TABLE_CMD_GET_HEADERS,
 	NET_FLOW_TABLE_CMD_GET_ACTIONS,
-	NET_FLOW_TABLE_CMD_GET_PARSE_GRAPH,
+	NET_FLOW_TABLE_CMD_GET_HEADER_GRAPH,
 	NET_FLOW_TABLE_CMD_GET_TABLE_GRAPH,
 
 	NET_FLOW_TABLE_CMD_GET_FLOWS,

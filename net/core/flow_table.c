@@ -849,8 +849,8 @@ static int net_flow_table_cmd_get_actions(struct sk_buff *skb,
 	return genlmsg_reply(msg, info);
 }
 
-static int net_flow_table_cmd_get_parse_graph(struct sk_buff *skb,
-					  struct genl_info *info)
+static int net_flow_table_cmd_get_header_graph(struct sk_buff *skb,
+					       struct genl_info *info)
 {
 	return -EOPNOTSUPP;
 }
@@ -1156,8 +1156,8 @@ static const struct genl_ops net_flow_table_nl_ops[] = {
 		.flags = GENL_ADMIN_PERM,
 	},
 	{
-		.cmd = NET_FLOW_TABLE_CMD_GET_PARSE_GRAPH,
-		.doit = net_flow_table_cmd_get_parse_graph,
+		.cmd = NET_FLOW_TABLE_CMD_GET_HEADER_GRAPH,
+		.doit = net_flow_table_cmd_get_header_graph,
 		//.policy = net_flow_table_cmd_get_parse_graph,
 		.flags = GENL_ADMIN_PERM,
 	},

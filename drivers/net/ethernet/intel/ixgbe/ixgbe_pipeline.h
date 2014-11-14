@@ -333,7 +333,7 @@ struct net_flow_jump_table ixgbe_ethernet_jump[2] =
 	},
 };
 
-struct net_flow_parser_node ixgbe_parse_node_ethernet = {
+struct net_flow_header_node ixgbe_header_node_ethernet = {
 	.uid = 1,
 	.hdrs = ixgbe_ethernet_headers,
 	.sets = NULL,
@@ -374,14 +374,14 @@ struct net_flow_jump_table ixgbe_vlan_inner_jump[1] = {
 	},
 };
 
-struct net_flow_parser_node ixgbe_parse_node_vlan_outer = {
+struct net_flow_header_node ixgbe_header_node_vlan_outer = {
 	.uid = 2,
 	.hdrs = ixgbe_vlan_headers,
 	.sets = NULL,
 	.jump = ixgbe_vlan_outer_jump,
 };
 
-struct net_flow_parser_node ixgbe_parse_node_vlan_inner = {
+struct net_flow_header_node ixgbe_header_node_vlan_inner = {
 	.uid = 3,
 	.hdrs = ixgbe_vlan_headers,
 	.sets = NULL,
@@ -401,7 +401,7 @@ struct net_flow_jump_table ixgbe_ip_jump[1] = {
 	},
 };
 
-struct net_flow_parser_node ixgbe_parse_node_ip = {
+struct net_flow_header_node ixgbe_header_node_ip = {
 	.uid = 4,
 	.hdrs = ixgbe_ip_headers,
 	.sets = NULL,
@@ -416,24 +416,22 @@ struct net_flow_jump_table ixgbe_tcp_jump[1] = {
 	},
 };
 
-struct net_flow_parser_node ixgbe_parse_node_tcp = {
+struct net_flow_header_node ixgbe_header_node_tcp = {
 	.uid = 5,
 	.hdrs = ixgbe_tcp_headers,
 	.sets = NULL,
 	.jump = ixgbe_tcp_jump,	
 };
 
-struct net_flow_parser_node *ixgbe_parse_graph_nodes[5] = {
-	&ixgbe_parse_node_ethernet,
-	&ixgbe_parse_node_vlan_outer,
-	&ixgbe_parse_node_vlan_inner,
-	&ixgbe_parse_node_ip,
-	&ixgbe_parse_node_tcp,
-};
+struct net_flow_header_node ixgbe_header_node_nil = {0};
 
-struct net_flow_parser_nodes ixgbe_parse_graph = {
-	.node_count = 5,
-	.nodes = ixgbe_parse_graph_nodes,
+struct net_flow_header_node *ixgbe_header_graph_nodes[6] = {
+	&ixgbe_header_node_ethernet,
+	&ixgbe_header_node_vlan_outer,
+	&ixgbe_header_node_vlan_inner,
+	&ixgbe_header_node_ip,
+	&ixgbe_header_node_tcp,
+	&ixgbe_header_node_nil,
 };
 
 struct net_flow_jump_table ixgbe_table_node_l2_jump[2] = {
