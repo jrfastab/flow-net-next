@@ -849,71 +849,204 @@ static int net_flow_table_cmd_get_actions(struct sk_buff *skb,
 	return genlmsg_reply(msg, info);
 }
 
-static int net_flow_table_cmd_get_header_graph(struct sk_buff *skb,
-					       struct genl_info *info)
+static int net_flow_put_header_node(struct sk_buff *skb,
+				    struct net_flow_header_node *node)
 {
-	return -EOPNOTSUPP;
+	struct nlattr *hdrs, *jumps;
+	int i, err;
+
+	if (nla_put_string(skb, NET_FLOW_HEADER_NODE_NAME, node->name) ||
+	    nla_put_u32(skb, NET_FLOW_HEADER_NODE_UID, node->uid))
+		return -EMSGSIZE;
+
+	/* Insert the set of headers that get extracted at this node */
+	hdrs = nla_nest_start(skb, NET_FLOW_HEADER_NODE_HDRS);
+	if (!hdrs)
+		return -EMSGSIZE;
+	for (i = 0; node->hdrs[i]; i++) {
+		if (nla_put_u32(skb, NET_FLOW_HEADER_NODE_HDRS_VALUE,
+				node->hdrs[i])) {
+			nla_nest_cancel(skb, hdrs);
+			return -EMSGSIZE;
+		}
+	}
+	nla_nest_end(skb, hdrs);
+
+	/* Then give the jump table to find next header node in graph */
+	jumps = nla_nest_start(skb, NET_FLOW_HEADER_NODE_JUMP);
+	if (!jumps)
+		return -EMSGSIZE;	
+
+	for (i = 0; node->jump[i].node; i++) {
+		err = nla_put(skb, NET_FLOW_JUMP_TABLE_ENTRY,
+			      sizeof(struct net_flow_jump_table),
+			      &node->jump[i]);
+		if (err) {
+			nla_nest_cancel(skb, jumps);	
+			return -EMSGSIZE;
+		}
+	}
+	nla_nest_end(skb, jumps);
+
+	return 0;
 }
 
-static int net_flow_put_table_graph(struct sk_buff *skb,
-				    struct net_flow_table_graph_nodes *g)
+static int net_flow_put_header_graph(struct sk_buff *skb,
+				     struct net_flow_header_node **g)
 {
-	struct nlattr *nodes, *node, *jump, *jump_node;
-	struct net_flow_table_graph_node *n;
-	int err, i = 0, j = 0;
+	struct nlattr *nodes, *node;
+	int err, i;
 
-	nodes = nla_nest_start(skb, NET_FLOW_TABLE_GRAPH);
+	nodes = nla_nest_start(skb, NET_FLOW_HEADER_GRAPH);
 	if (!nodes)
 		return -EMSGSIZE;
 
-	for (n = g->nodes[i]; n->uid; n = g->nodes[++i]) {
-		struct net_flow_jump_table *jnode;
-
-		node = nla_nest_start(skb, NET_FLOW_TABLE_GRAPH_NODE);
+	for (i = 0; g[i]->uid; i++) {
+		node = nla_nest_start(skb, NET_FLOW_HEADER_GRAPH_NODE);
 		if (!node)
-			goto out;
+			goto nodes_put_error;
 
-		if (nla_put_u32(skb, NET_FLOW_TABLE_GRAPH_NODE_UID, n->uid))
-			goto node_put_failure;
+		err = net_flow_put_header_node(skb, g[i]);
+		if (err)
+			goto node_put_error;
 
-		jump = nla_nest_start(skb, NET_FLOW_TABLE_GRAPH_NODE_JUMP);
-		if (!jump)
-			goto out;	
-
-		for (j = 0, jnode = &n->jump[j]; jnode->node; jnode = &n->jump[++j]) {
-			jump_node = nla_nest_start(skb, NET_FLOW_JUMP_TABLE_ENTRY);
-			if (!jump_node)
-				goto jump_put_failure;
-
-			if (nla_put_u32(skb, NET_FLOW_JUMP_TABLE_NODE, jnode->node)) {
-				printk("%s: table node failed\n", __func__);
-				goto jump_node_put_failure;
-			}
-
-			err = nla_put(skb, NET_FLOW_JUMP_TABLE_FIELD_REF,
-				      sizeof(jnode->field), &jnode->field);
-			if (err) {
-				printk("%s: warning field ref failed\n", __func__);
-				goto jump_node_put_failure;
-			}
-			nla_nest_end(skb, jump_node);
-		}
-
-		nla_nest_end(skb, jump);
 		nla_nest_end(skb, node);
 	}
 
 	nla_nest_end(skb, nodes);
 	return 0;
-jump_node_put_failure:
-	nla_nest_cancel(skb, jump_node);
-jump_put_failure:
-	nla_nest_cancel(skb, jump);	
-node_put_failure:
+node_put_error:
 	nla_nest_cancel(skb, node);
-out:
+nodes_put_error:
 	nla_nest_cancel(skb, nodes);	
 	return -EMSGSIZE;
+}
+
+static
+struct sk_buff *net_flow_build_header_graph_msg(struct net_flow_header_node **g,
+						struct net_device *dev,
+						u32 portid, int seq, u8 cmd)
+{
+	struct genlmsghdr *hdr;
+	struct sk_buff *skb;
+	int err = -ENOBUFS;
+
+	skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+	if (!skb)
+		return ERR_PTR(-ENOBUFS);
+
+	hdr = genlmsg_put(skb, portid, seq, &net_flow_nl_family, 0, cmd);
+	if (!hdr)
+		goto out;
+
+	if (nla_put_u32(skb, NET_FLOW_IDENTIFIER_TYPE, NET_FLOW_IDENTIFIER_IFINDEX) ||
+	    nla_put_u32(skb, NET_FLOW_IDENTIFIER, dev->ifindex)) {
+		err = -ENOBUFS;
+		goto out;
+	}
+
+	err = net_flow_put_header_graph(skb, g);
+	if (err < 0)
+		goto out;
+	
+	err = genlmsg_end(skb, hdr);
+	if (err < 0)
+		goto out;
+
+	return skb;
+out:
+	nlmsg_free(skb);
+	return ERR_PTR(err);
+}
+
+
+static int net_flow_table_cmd_get_header_graph(struct sk_buff *skb,
+					       struct genl_info *info)
+{
+	struct net_flow_header_node **h;
+	struct net_device *dev;
+	struct sk_buff *msg;
+
+	dev = net_flow_table_get_dev(info);
+	if (!dev)
+		return -EINVAL;
+
+	if (!dev->netdev_ops->ndo_flow_table_get_hdr_graph) {
+		dev_put(dev);
+		return -EOPNOTSUPP;
+	}
+
+	h = dev->netdev_ops->ndo_flow_table_get_hdr_graph(dev);
+	if (!h)
+		return -EBUSY;
+
+	msg = net_flow_build_header_graph_msg(h, dev,
+					      info->snd_portid,
+					      info->snd_seq,
+					      NET_FLOW_TABLE_CMD_GET_HEADER_GRAPH); 
+	dev_put(dev);
+
+	if (IS_ERR(msg))
+		return PTR_ERR(msg);
+
+	return genlmsg_reply(msg, info);
+}
+
+static int net_flow_put_table_node(struct sk_buff *skb,
+				    struct net_flow_table_graph_node *node)
+{
+	struct nlattr *nest, *jump;
+	int i, err = -EMSGSIZE;
+
+	nest = nla_nest_start(skb, NET_FLOW_TABLE_GRAPH_NODE);
+	if (!nest)
+		return err;
+
+	if (nla_put_u32(skb, NET_FLOW_TABLE_GRAPH_NODE_UID, node->uid))
+		goto node_put_failure;
+
+	jump = nla_nest_start(skb, NET_FLOW_TABLE_GRAPH_NODE_JUMP);
+	if (!jump)
+		goto node_put_failure;	
+
+	for (i = 0; node->jump[i].node; i++) {
+		err = nla_put(skb, NET_FLOW_JUMP_TABLE_ENTRY,
+			      sizeof(struct net_flow_jump_table),
+			      &node->jump[i]);
+		if (err)
+			goto jump_put_failure;
+	}
+
+	nla_nest_end(skb, jump);
+	nla_nest_end(skb, nest);
+	return 0;
+jump_put_failure:
+	nla_nest_cancel(skb, jump);
+node_put_failure:
+	nla_nest_cancel(skb, nest);
+	return err;
+}
+
+static int net_flow_put_table_graph(struct sk_buff *skb,
+				    struct net_flow_table_graph_node **nodes)
+{
+	struct nlattr *graph;
+	int err, i = 0;
+
+	graph = nla_nest_start(skb, NET_FLOW_TABLE_GRAPH);
+	if (!nodes)
+		return -EMSGSIZE;
+
+	for (i = 0; nodes[i]->uid; i++) {
+		err = net_flow_put_table_node(skb, nodes[i]);	
+		if (err) {
+			nla_nest_cancel(skb, graph);
+			return -EMSGSIZE;
+		}
+	}
+
+	nla_nest_end(skb, graph);
+	return 0;
 }
 
 static
@@ -939,7 +1072,7 @@ struct sk_buff *net_flow_build_table_graph_msg(struct net_flow_table_graph_nodes
 		goto out;
 	}
 
-	err = net_flow_put_table_graph(skb, g);
+	err = net_flow_put_table_graph(skb, g->nodes);
 	if (err < 0)
 		goto out;
 	

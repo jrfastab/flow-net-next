@@ -7828,6 +7828,11 @@ static struct net_flow_table_graph_nodes *ixgbe_flow_table_get_tbl_graph(struct 
 	return &ixgbe_table_graph;
 }
 
+static struct net_flow_header_node **ixgbe_flow_table_get_hdr_graph(struct net_device *d)
+{
+	return ixgbe_header_graph_nodes;
+}
+
 static int ixgbe_flow_table_set_flows(struct net_device *dev,
 			 	      struct net_flow_flow *flow)
 {
@@ -8187,6 +8192,7 @@ static const struct net_device_ops ixgbe_netdev_ops = {
 	.ndo_flow_table_get_flows = ixgbe_flow_table_get_flows,
 	.ndo_flow_table_set_flows = ixgbe_flow_table_set_flows,
 	.ndo_flow_table_get_tbl_graph = ixgbe_flow_table_get_tbl_graph,
+	.ndo_flow_table_get_hdr_graph = ixgbe_flow_table_get_hdr_graph,
 };
 
 /**

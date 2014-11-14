@@ -1155,6 +1155,7 @@ struct net_device_ops {
 	struct net_flow_headers *(*ndo_flow_table_get_headers)(struct net_device *dev);
 	struct net_flow_actions *(*ndo_flow_table_get_actions)(struct net_device *dev);
 	struct net_flow_table_graph_nodes *(*ndo_flow_table_get_tbl_graph)(struct net_device *dev);
+	struct net_flow_header_node **(*ndo_flow_table_get_hdr_graph)(struct net_device *dev);
 	int		        (*ndo_flow_table_get_flows)(struct sk_buff *skb,
 							    struct net_device *dev,
 							    int table, int min, int max);

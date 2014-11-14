@@ -310,8 +310,8 @@ struct net_flow_headers ixgbe_headers =
 };
 
 /* Maybe headers could be inferred from jump table? */
-net_flow_header_ref ixgbe_ethernet_headers[1] = {1};
-struct net_flow_jump_table ixgbe_ethernet_jump[2] =
+net_flow_header_ref ixgbe_ethernet_headers[2] = {1, 0};
+struct net_flow_jump_table ixgbe_ethernet_jump[3] =
 {
 	{
 		.field = {
@@ -329,19 +329,23 @@ struct net_flow_jump_table ixgbe_ethernet_jump[2] =
 		   .type = NET_FLOW_FIELD_REF_ATTR_TYPE_U16,
 		   .value_u16 = 0x0800,
 		},
-		.node = 3,
+		.node = 4,
+	},
+	{
+		.field = {0},
+		.node = 0,
 	},
 };
 
 struct net_flow_header_node ixgbe_header_node_ethernet = {
+	.name = "ethernet",
 	.uid = 1,
 	.hdrs = ixgbe_ethernet_headers,
-	.sets = NULL,
 	.jump = ixgbe_ethernet_jump,
 };
 
-net_flow_header_ref ixgbe_vlan_headers[1] = {2};
-struct net_flow_jump_table ixgbe_vlan_outer_jump[2] = {
+net_flow_header_ref ixgbe_vlan_headers[2] = {2, 0};
+struct net_flow_jump_table ixgbe_vlan_outer_jump[3] = {
 	{
 		.field = {
 		   .header = 2,
@@ -360,9 +364,13 @@ struct net_flow_jump_table ixgbe_vlan_outer_jump[2] = {
 		},
 		.node = 4,
 	},
+	{
+		.field = {0},
+		.node = 0,
+	},
 };
 
-struct net_flow_jump_table ixgbe_vlan_inner_jump[1] = {
+struct net_flow_jump_table ixgbe_vlan_inner_jump[2] = {
 	{
 		.field = {
 		   .header = 1,
@@ -372,24 +380,28 @@ struct net_flow_jump_table ixgbe_vlan_inner_jump[1] = {
 		},
 		.node = 4,
 	},
+	{
+		.field = {0},
+		.node = 0,
+	},
 };
 
 struct net_flow_header_node ixgbe_header_node_vlan_outer = {
+	.name = "outer_vlan",
 	.uid = 2,
 	.hdrs = ixgbe_vlan_headers,
-	.sets = NULL,
 	.jump = ixgbe_vlan_outer_jump,
 };
 
 struct net_flow_header_node ixgbe_header_node_vlan_inner = {
+	.name = "inner_vlan",
 	.uid = 3,
 	.hdrs = ixgbe_vlan_headers,
-	.sets = NULL,
 	.jump = ixgbe_vlan_inner_jump,
 };
 
-net_flow_header_ref ixgbe_ip_headers[1] = {3};
-struct net_flow_jump_table ixgbe_ip_jump[1] = {
+net_flow_header_ref ixgbe_ip_headers[2] = {3, 0};
+struct net_flow_jump_table ixgbe_ip_jump[2] = {
 	{
 		.field = {
 		   .header = 3,
@@ -399,17 +411,21 @@ struct net_flow_jump_table ixgbe_ip_jump[1] = {
 		},
 		.node = 5,
 	},
+	{
+		.field = {0},
+		.node = 0,
+	},
 };
 
 struct net_flow_header_node ixgbe_header_node_ip = {
+	.name = "ip",
 	.uid = 4,
 	.hdrs = ixgbe_ip_headers,
-	.sets = NULL,
 	.jump = ixgbe_ip_jump,	
 };
 
-net_flow_header_ref ixgbe_tcp_headers[1] = {4};
-struct net_flow_jump_table ixgbe_tcp_jump[1] = {
+net_flow_header_ref ixgbe_tcp_headers[2] = {4, 0};
+struct net_flow_jump_table ixgbe_tcp_jump[2] = {
 	{
 		.field = {0},
 		.node = NET_FLOW_JUMP_TABLE_DONE,
@@ -417,13 +433,13 @@ struct net_flow_jump_table ixgbe_tcp_jump[1] = {
 };
 
 struct net_flow_header_node ixgbe_header_node_tcp = {
+	.name = "tcp",
 	.uid = 5,
 	.hdrs = ixgbe_tcp_headers,
-	.sets = NULL,
 	.jump = ixgbe_tcp_jump,	
 };
 
-struct net_flow_header_node ixgbe_header_node_nil = {0};
+struct net_flow_header_node ixgbe_header_node_nil = {.name = "", .uid = 0, };
 
 struct net_flow_header_node *ixgbe_header_graph_nodes[6] = {
 	&ixgbe_header_node_ethernet,

@@ -103,8 +103,6 @@
  *	[TABLE_GRAPH_NODE_UID]
  *	[TABLE_GRAPH_NODE_JUMP]
  *	  [NET_FLOW_JUMP_TABLE_ENTRY]
- *	    [NET_FLOW_JUMP_TABLE_FIELD]
- *	    [NET_FLOW_JUMP_TABLE_NODE]
  *	  [NET_FLOW_JUMP_TABLE_ENTRY]
  *	    [...]
  *   [TABLE_GRAPH_NODE]
@@ -458,6 +456,7 @@ struct net_flow_tables {
 	struct net_flow_table *tables;
 };
 
+#if 0
 struct net_flow_offset {
 	int offset;
 	int length;
@@ -506,15 +505,9 @@ enum {
 	__NET_FLOW_HEADER_NODE_SET_MAX,
 };
 #define NET_FLOW_HEADER_NODE_SET_MAX (__NET_FLOW_HEADER_NODE_SET_MAX - 1)
+#endif
 
 typedef int net_flow_header_ref;
-
-enum {
-	NET_FLOW_HEADER_NODE_HDRS_UNSPEC,
-	NET_FLOW_HEADER_NODE_HDRS_REF,
-	NET_FLOW_HEADER_NODE_HDRS_MAX,
-};
-#define NET_FLOW_HEADER_NODE_HDRS_MAX (__NET_FLOW_HEADER_NODE_HDRS_MAX - 1)
 
 struct net_flow_jump_table {
 	struct net_flow_field_ref field;
@@ -528,14 +521,13 @@ enum {
 	NET_FLOW_JUMP_TABLE_ENTRY,
 	__NET_FLOW_JUMP_TABLE_ENTRY_MAX,
 };
-	
+
 enum {
-	NET_FLOW_JUMP_TABLE_UNSPEC,
-	NET_FLOW_JUMP_TABLE_NODE,
-	NET_FLOW_JUMP_TABLE_FIELD_REF,
-	__NET_FLOW_JUMP_TABLE_MAX,
+	NET_FLOW_HEADER_NODE_HDRS_UNSPEC,
+	NET_FLOW_HEADER_NODE_HDRS_VALUE,
+	__NET_FLOW_HEADER_NODE_HDRS_MAX,
 };
-#define NET_FLOW_JUMP_TABLE_MAX (__NET_FLOW_JUMP_TABLE_MAX - 1)
+#define NET_FLOW_HEADER_NODE_HDRS_MAX (__NET_FLOW_HEADER_NODE_HDRS_MAX - 1)
 
 /* net_flow_header_node: node in a header graph of header fields.
  *
@@ -545,21 +537,30 @@ enum {
  * @net_flow_jump_table : give a case jump statement
  */
 struct net_flow_header_node {
+	char name[IFNAMSIZ];
 	int uid;
 	net_flow_header_ref *hdrs;
-	struct net_flow_set *sets;
+	//struct net_flow_set *sets;
 	struct net_flow_jump_table *jump;
 };
 
 enum {
 	NET_FLOW_HEADER_NODE_UNSPEC,
+	NET_FLOW_HEADER_NODE_NAME,
 	NET_FLOW_HEADER_NODE_UID,
 	NET_FLOW_HEADER_NODE_HDRS,
-	NET_FLOW_HEADER_NODE_SETS,
+	//NET_FLOW_HEADER_NODE_SETS,
 	NET_FLOW_HEADER_NODE_JUMP,
 	__NET_FLOW_HEADER_NODE_MAX,
 };
 #define NET_FLOW_HEADER_NODE_MAX (__NET_FLOW_HEADER_NODE_MAX - 1)
+
+enum {
+	NET_FLOW_HEADER_GRAPH_UNSPEC,
+	NET_FLOW_HEADER_GRAPH_NODE,
+	__NET_FLOW_HEADER_GRAPH_MAX,
+};
+#define NET_FLOW_HEADER_GRAPH_MAX (__NET_FLOW_HEADER_GRAPH_MAX - 1)
 
 struct net_flow_table_graph_node {
 	int uid;
@@ -598,7 +599,7 @@ enum {
 	NET_FLOW_TABLES,
 	NET_FLOW_HEADERS,
 	NET_FLOW_ACTIONS,
-	NET_FLOW_PARSE_GRAPH,
+	NET_FLOW_HEADER_GRAPH,
 	NET_FLOW_TABLE_GRAPH,
 	NET_FLOW_FLOWS,
 
