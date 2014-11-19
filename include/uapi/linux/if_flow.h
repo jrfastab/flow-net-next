@@ -247,6 +247,7 @@ enum {
  * @brief uniquely identify field as header:field tuple
  */
 struct net_flow_field_ref {
+	int instance;
 	int header;
 	int field;
 	int type;
@@ -443,18 +444,6 @@ enum {
 	__NET_FLOW_TABLE_ATTR_MAX,
 };
 #define NET_FLOW_TABLE_ATTR_MAX (__NET_FLOW_TABLE_ATTR_MAX - 1)
-
-/**
- * @struct net_flow_tables
- * @brief a set of tables
- *
- * @table_sz number of tables at endpoint
- * @net_flow_table set of table entries
- */
-struct net_flow_tables {
-	int table_sz;
-	struct net_flow_table *tables;
-};
 
 #if 0
 struct net_flow_offset {

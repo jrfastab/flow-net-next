@@ -95,8 +95,10 @@ static int net_flow_put_action(struct sk_buff *skb, struct net_flow_action *a)
 	struct nlattr *nest;
 	int err, args = 0;
 
-	if (nla_put_string(skb, NET_FLOW_ACTION_ATTR_NAME, a->name) ||
-	    nla_put_u32(skb, NET_FLOW_ACTION_ATTR_UID, a->uid))
+	if (a->name && nla_put_string(skb, NET_FLOW_ACTION_ATTR_NAME, a->name))
+		return -EMSGSIZE;
+
+	if (nla_put_u32(skb, NET_FLOW_ACTION_ATTR_UID, a->uid))
 		return -EMSGSIZE;
 
 	for (this = &a->args[0]; strlen(this->name) > 0; this++)
@@ -120,25 +122,22 @@ nest_put_failure:
 	return -EMSGSIZE;
 }
 
-static int net_flow_put_actions(struct sk_buff *skb, struct net_flow_actions *acts)
+static int net_flow_put_actions(struct sk_buff *skb, struct net_flow_action **acts)
 {
-	struct net_flow_action **a;
-	struct net_flow_action *this;
 	struct nlattr *actions;
-	int err;
+	int err, i;
 
 	actions = nla_nest_start(skb, NET_FLOW_ACTIONS);
 	if (!actions)
 		return -EMSGSIZE;
 		
-	for (a = acts->actions, this = *a;
-	     strlen(this->name) > 0; a++, this = *a) {
+	for (i = 0; acts[i]->uid; i++) {
 		struct nlattr *action = nla_nest_start(skb, NET_FLOW_ACTION);
 
 		if (!action)
 			goto action_put_failure;
 
-		err = net_flow_put_action(skb, this);
+		err = net_flow_put_action(skb, acts[i]);
 		if (err)
 			goto action_put_failure;
 		nla_nest_end(skb, action);
@@ -239,8 +238,7 @@ static int net_flow_put_table(struct net_device *dev,
 			      struct net_flow_table *t)
 {
 	struct nlattr *matches, *flow, *actions;
-	struct net_flow_field_ref *m;
-	net_flow_action_ref *ref;
+	int i;
 
 	flow = NULL; /* must null to get unwind correct */
 
@@ -254,16 +252,20 @@ static int net_flow_put_table(struct net_device *dev,
 	if (!matches)
 		return -EMSGSIZE;
 
-	for (m = t->matches; m->header || m->field; m++)
-		nla_put(skb, NET_FLOW_FIELD_REF, sizeof(*m), m);
+	for (i = 0; t->matches[i].instance; i++)
+		nla_put(skb, NET_FLOW_FIELD_REF,
+			sizeof(struct net_flow_field_ref),
+			&t->matches[i]);
 	nla_nest_end(skb, matches);
 
 	actions = nla_nest_start(skb, NET_FLOW_TABLE_ATTR_ACTIONS);
 	if (!actions)
 		return -EMSGSIZE;
 
-	for (ref = t->actions; *ref; ref++) {
-		if (nla_put_u32(skb, NET_FLOW_ACTION_ATTR_UID, *ref)) {
+	for (i = 0; t->actions[i]; i++) {
+		if (nla_put_u32(skb,
+				NET_FLOW_ACTION_ATTR_UID,
+				t->actions[i])) {
 			nla_nest_cancel(skb, actions);
 			return -EMSGSIZE;
 		}
@@ -282,7 +284,7 @@ static int net_flow_put_table(struct net_device *dev,
 
 int net_flow_put_tables(struct net_device *dev,
 			struct sk_buff *skb,
-			const struct net_flow_tables *tables)
+			struct net_flow_table **tables)
 {
 	struct nlattr *nest, *t;
 	int i, err = 0;
@@ -291,9 +293,9 @@ int net_flow_put_tables(struct net_device *dev,
 	if (!nest)
 		return -EMSGSIZE;
 
-	for (i = 0; i < tables->table_sz; i++) {
+	for (i = 0; tables[i]->uid; i++) {
 		t = nla_nest_start(skb, NET_FLOW_TABLE);
-		err = net_flow_put_table(dev, skb, &tables->tables[i]);
+		err = net_flow_put_table(dev, skb, tables[i]);
 		if (err)
 			goto errout;
 		nla_nest_end(skb, t);
@@ -306,7 +308,7 @@ errout:
 }
 EXPORT_SYMBOL(net_flow_put_tables);
 
-struct sk_buff *net_flow_build_tables_msg(struct net_flow_tables *t,
+struct sk_buff *net_flow_build_tables_msg(struct net_flow_table **t,
 					  struct net_device *dev,
 					  u32 portid, int seq, u8 cmd)
 {
@@ -554,35 +556,6 @@ static int net_flow_get_flow(struct net_flow_flow *flow, struct nlattr *attr)
 	return 0;
 }
 
-static void kfree_flow(struct net_flow_flow *f)
-{
-	if (!f)
-		return;
-
-	if (f->matches)
-		kfree(f->matches);
-	if (f->actions) {
-		if (f->actions->args)
-			kfree(f->actions->args);
-		kfree(f->actions);
-	}
-}
-
-static void kfree_net_flow_tables(struct net_flow_tables *t)
-{
-	int i;
-
-	if (!t)
-		return;
-
-	for (i = 0; i < t->table_sz; i++) {
-		kfree(t->tables[i].name);
-		kfree(t->tables[i].matches);
-
-		kfree_flow(t->tables[i].flows);
-	}
-}
-
 static struct net_device *net_flow_table_get_dev(struct genl_info *info)
 {
 	struct net *net = genl_info_net(info);
@@ -719,7 +692,7 @@ static int net_flow_table_cmd_destroy_tables(struct sk_buff *skb,
 static int net_flow_table_cmd_get_tables(struct sk_buff *skb,
 					 struct genl_info *info)
 {
-	struct net_flow_tables *tables;
+	struct net_flow_table **tables;
 	struct net_device *dev;
 	struct sk_buff *msg;
 
@@ -780,7 +753,7 @@ static int net_flow_table_cmd_get_headers(struct sk_buff *skb,
 	return genlmsg_reply(msg, info);
 }
 
-struct sk_buff *net_flow_build_actions_msg(struct net_flow_actions *a,
+struct sk_buff *net_flow_build_actions_msg(struct net_flow_action **a,
 					   struct net_device *dev,
 					   u32 portid, int seq, u8 cmd)
 {
@@ -820,7 +793,7 @@ out:
 static int net_flow_table_cmd_get_actions(struct sk_buff *skb,
 				      struct genl_info *info)
 {
-	struct net_flow_actions *a;
+	struct net_flow_action **a;
 	struct net_device *dev;
 	struct sk_buff *msg;
 
@@ -1050,7 +1023,7 @@ static int net_flow_put_table_graph(struct sk_buff *skb,
 }
 
 static
-struct sk_buff *net_flow_build_table_graph_msg(struct net_flow_table_graph_nodes *g,
+struct sk_buff *net_flow_build_table_graph_msg(struct net_flow_table_graph_node **g,
 					       struct net_device *dev,
 					       u32 portid, int seq, u8 cmd)
 {
@@ -1072,7 +1045,7 @@ struct sk_buff *net_flow_build_table_graph_msg(struct net_flow_table_graph_nodes
 		goto out;
 	}
 
-	err = net_flow_put_table_graph(skb, g->nodes);
+	err = net_flow_put_table_graph(skb, g);
 	if (err < 0)
 		goto out;
 	
@@ -1089,7 +1062,7 @@ out:
 static int net_flow_table_cmd_get_table_graph(struct sk_buff *skb,
 					      struct genl_info *info)
 {
-	struct net_flow_table_graph_nodes *g;
+	struct net_flow_table_graph_node **g;
 	struct net_device *dev;
 	struct sk_buff *msg;
 

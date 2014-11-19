@@ -7808,9 +7808,9 @@ static void ixgbe_fwd_del(struct net_device *pdev, void *priv)
 	kfree(fwd_adapter);
 }
 
-static struct net_flow_tables *ixgbe_flow_table_get_tables(struct net_device *d)
+static struct net_flow_table **ixgbe_flow_table_get_tables(struct net_device *d)
 {
-	return &ixgbe_tables;
+	return ixgbe_table_list;
 }
 
 static struct net_flow_headers *ixgbe_flow_table_get_headers(struct net_device *d)
@@ -7818,19 +7818,19 @@ static struct net_flow_headers *ixgbe_flow_table_get_headers(struct net_device *
 	return &ixgbe_headers;
 }
 
-static struct net_flow_actions *ixgbe_flow_table_get_actions(struct net_device *d)
+static struct net_flow_action **ixgbe_flow_table_get_actions(struct net_device *d)
 {
-	return &ixgbe_actions;
+	return ixgbe_action_list;
 }
 
-static struct net_flow_table_graph_nodes *ixgbe_flow_table_get_tbl_graph(struct net_device *d)
+static struct net_flow_table_graph_node **ixgbe_flow_table_get_tbl_graph(struct net_device *d)
 {
-	return &ixgbe_table_graph;
+	return ixgbe_table_graph_nodes;
 }
 
 static struct net_flow_header_node **ixgbe_flow_table_get_hdr_graph(struct net_device *d)
 {
-	return ixgbe_header_graph_nodes;
+	return ixgbe_header_nodes;
 }
 
 static int ixgbe_flow_table_set_flows(struct net_device *dev,
