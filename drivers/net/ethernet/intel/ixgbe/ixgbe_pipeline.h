@@ -343,11 +343,6 @@ struct net_flow_header *ixgbe_header_list[6] =
 	&nill,
 };
 
-struct net_flow_headers ixgbe_headers =
-{
-	.net_flow_headers = ixgbe_header_list,
-};
-
 /* Maybe headers could be inferred from jump table? */
 net_flow_header_ref ixgbe_ethernet_headers[2] = {1, 0};
 struct net_flow_jump_table ixgbe_ethernet_jump[3] =

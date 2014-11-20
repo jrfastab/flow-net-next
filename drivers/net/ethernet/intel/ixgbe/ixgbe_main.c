@@ -7813,9 +7813,9 @@ static struct net_flow_table **ixgbe_flow_table_get_tables(struct net_device *d)
 	return ixgbe_table_list;
 }
 
-static struct net_flow_headers *ixgbe_flow_table_get_headers(struct net_device *d)
+static struct net_flow_header **ixgbe_flow_table_get_headers(struct net_device *d)
 {
-	return &ixgbe_headers;
+	return ixgbe_header_list;
 }
 
 static struct net_flow_action **ixgbe_flow_table_get_actions(struct net_device *d)

@@ -227,22 +227,6 @@ enum {
 #define NET_FLOW_HEADER_ATTR_MAX (__NET_FLOW_HEADER_ATTR_MAX - 1)
 
 /**
- * @struct net_flow_headers
- * @brief null terminated set of net_flow_header definitions
- */
-struct net_flow_headers {
-	struct net_flow_header **net_flow_headers;
-};
-
-#if 0
-enum {
-	NET_FLOW_HEADERS_UNSPEC,
-	NET_FLOW_HEADERS,
-	__NET_FLOW_HEADERS_UNSPEC,
-};
-#endif
-
-/**
  * @struct net_flow_field_ref
  * @brief uniquely identify field as header:field tuple
  */

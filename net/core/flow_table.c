@@ -371,30 +371,31 @@ field_put_failure:
 }
 
 int net_flow_put_headers(struct sk_buff *skb,
-			 const struct net_flow_headers *headers)
+			 struct net_flow_header **headers)
 {
-	struct net_flow_header **h;
-	struct net_flow_header *this;
 	struct nlattr *nest, *hdr, *fields;
+	struct net_flow_header *h;
+	int i;
 
 	nest = nla_nest_start(skb, NET_FLOW_HEADERS);
 	if (!nest)
 		goto hdr_put_failure;
 		
-	for (h = headers->net_flow_headers, this = *h;
-	     strlen(this->name) > 0; h++, this = *h) {
+	for (i = 0; headers[i]->uid; i++) {
+		h = headers[i];
+ 
 		hdr = nla_nest_start(skb, NET_FLOW_HEADER);
 		if (!hdr)
 			goto hdr_put_failure;
 
-		if (nla_put_string(skb, NET_FLOW_HEADER_ATTR_NAME, this->name) ||
-		    nla_put_u32(skb, NET_FLOW_HEADER_ATTR_UID, this->uid))
+		if (nla_put_string(skb, NET_FLOW_HEADER_ATTR_NAME, h->name) ||
+		    nla_put_u32(skb, NET_FLOW_HEADER_ATTR_UID, h->uid))
 			goto attr_put_failure;
 
 		fields = nla_nest_start(skb, NET_FLOW_HEADER_ATTR_FIELDS);
 		if (!fields)
 			goto fields_put_failure;
-		net_flow_put_fields(skb, this);
+		net_flow_put_fields(skb, h);
 		nla_nest_end(skb, fields);
 
 		nla_nest_end(skb, hdr);
@@ -409,7 +410,7 @@ hdr_put_failure:
 	return -EMSGSIZE;
 }
 
-struct sk_buff *net_flow_build_headers_msg(struct net_flow_headers *h,
+struct sk_buff *net_flow_build_headers_msg(struct net_flow_header **h,
 					   struct net_device *dev,
 					   u32 portid, int seq, u8 cmd)
 {
@@ -724,7 +725,7 @@ static int net_flow_table_cmd_get_tables(struct sk_buff *skb,
 static int net_flow_table_cmd_get_headers(struct sk_buff *skb,
 				      struct genl_info *info)
 {
-	struct net_flow_headers *h;
+	struct net_flow_header **h;
 	struct net_device *dev;
 	struct sk_buff *msg;
 
