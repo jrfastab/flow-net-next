@@ -182,7 +182,7 @@ int net_flow_put_flow_action(struct sk_buff *skb, struct net_flow_action *a)
 	return 0;
 }
 
-int net_flow_put_flow(struct sk_buff *skb, struct net_flow_flow *flow, int mcnt, int acnt, int args)
+int net_flow_put_flow(struct sk_buff *skb, struct net_flow_flow *flow)
 {
 	struct nlattr *flows, *matches;
 	struct nlattr *actions = NULL; /* must be null to unwind */
@@ -200,7 +200,7 @@ int net_flow_put_flow(struct sk_buff *skb, struct net_flow_flow *flow, int mcnt,
 	matches = nla_nest_start(skb, NET_FLOW_ATTR_MATCHES);
 	if (!matches)
 		goto flows_put_failure;
-	for (j = 0; j < mcnt; j++) {
+	for (j = 0; flow->matches[j].header; j++) {
 		struct net_flow_field_ref *f = &flow->matches[j];
 
 		if (!f->header)
@@ -214,7 +214,7 @@ int net_flow_put_flow(struct sk_buff *skb, struct net_flow_flow *flow, int mcnt,
 	if (!actions)
 		goto flows_put_failure;
 
-	for (i = 0; i < acnt; i++) {
+	for (i = 0; flow->actions[i].uid; i++) {
 		err = net_flow_put_flow_action(skb, &flow->actions[i]);
 		if (err) {
 			nla_nest_cancel(skb, actions);

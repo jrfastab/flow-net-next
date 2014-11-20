@@ -8002,73 +8002,88 @@ static int ixgbe_flow_table_get_flows(struct sk_buff *skb,
 {
 	struct ixgbe_adapter *adapter = netdev_priv(dev);
 	struct ixgbe_hw *hw = &adapter->hw;
+	int i, count;
 
 	if (table == IXGBE_L2_TABLE) {
-		int i, count = 1;
-
 		for (i = 0; i < hw->mac.num_rar_entries; i++) {
-			struct net_flow_field_ref ref;
-			struct net_flow_flow flow;
-			struct net_flow_action action;
-			struct net_flow_action_arg arg;
+			struct net_flow_field_ref ref[2];
+			struct net_flow_flow flow = {0};
+			struct net_flow_action action[2];
+			struct net_flow_action_arg arg[2];
 
 			if (!(adapter->mac_table[i].state &
 			      IXGBE_MAC_STATE_IN_USE))
 				continue;
 
-			ref.header = 1;
-			ref.field = 2;
-			ref.type = NET_FLOW_FIELD_REF_ATTR_TYPE_U64;
+			memset(ref, 0, 2*sizeof(*ref));
+			memset(action, 0, 2*sizeof(*action));
+			memset(arg, 0, 2*sizeof(*arg));
 
-			memcpy((u8 *)&ref.value_u64,
+			ref[0].header = 1;
+			ref[0].field = 2;
+			ref[0].type = NET_FLOW_FIELD_REF_ATTR_TYPE_U64;
+
+			memcpy((u8 *)&ref[0].value_u64,
 			       adapter->mac_table[i].addr, ETH_ALEN);
 
 			flow.table_id = IXGBE_L2_TABLE;
-			flow.uid = count;
-			flow.priority = count;
-			flow.matches = &ref;
+			flow.uid = i+1;
+			flow.priority = 0; /* hardware doesn't have priority */
+			flow.matches = ref;
 
-			arg.type = NET_FLOW_ACTION_ARG_TYPE_U32;
-			memset(arg.name, 0, sizeof(arg.name));
-			arg.value_u32 = 0;
+			arg[0].type = NET_FLOW_ACTION_ARG_TYPE_U32;
+			arg[0].value_u32 = 0;
 
-			action.uid = 1;
-			action.args = &arg;
-			flow.actions =  &action;
+			action[0].uid = 1;
+			action[0].args = arg;
+			flow.actions =  action;
 
-			net_flow_put_flow(skb, &flow, 1, 1, 1);
+			net_flow_put_flow(skb, &flow);
 		}
 	} else if (table == IXGBE_FDIR_TABLE) {
-		struct ixgbe_fdir_filter *rule = NULL;
 		union ixgbe_atr_input *mask = &adapter->fdir_mask;
+		struct ixgbe_fdir_filter *rule = NULL;
+		struct net_flow_action_arg *args;
+		struct net_flow_field_ref *ref;
+		struct net_flow_action *action;
 		struct hlist_node *node2;
 
+#define IXGBE_MAX_REFS 6
+#define IXGBE_MAX_ARGS 2
+#define IXGBE_MAX_ACTION 2
+
+		ref = kcalloc(IXGBE_MAX_REFS, sizeof(struct net_flow_field_ref), GFP_KERNEL);
+		if (!ref)
+			return -ENOMEM;	
+		args = kcalloc(IXGBE_MAX_ARGS, sizeof(struct net_flow_action_arg), GFP_KERNEL);
+		if (!args) {
+			kfree(ref);
+			return -ENOMEM;
+		}
+
+		action = kcalloc(IXGBE_MAX_ACTION, sizeof(struct net_flow_action), GFP_KERNEL);
+		if (!action) {
+			kfree(args);
+			kfree(ref);
+			return -ENOMEM;
+		}
+
+		i = count = 0;
 		/* TBD: use flow_table functions ref_to_nl to clean this up
 		 * I don't really like building netlink encodings in drivers
 		 */
 		hlist_for_each_entry_safe(rule, node2,
 					  &adapter->fdir_filter_list, fdir_node) {
-			struct net_flow_field_ref *ref;
 			struct net_flow_flow flow;
-			struct net_flow_action action;
-			struct net_flow_action_arg *args;
 
-			int acnt = 0, count = 0, argcnt = 0;
- 
-			ref = kcalloc(5, sizeof(struct net_flow_field_ref), GFP_KERNEL);
-			if (!ref)
-				return -ENOMEM;	
-			args = kcalloc(2, sizeof(struct net_flow_action_arg), GFP_KERNEL);
-			if (!args) {
-				kfree(ref);
-				return -ENOMEM;
-			}
-			memset(&flow, 0, sizeof(flow));
-			memset(&action, 0, sizeof(action));
-
+ 			memset(&flow, 0, sizeof(flow));
+			memset(ref, 0, sizeof(*ref) * IXGBE_MAX_REFS);
+			memset(args, 0, sizeof(*args) * IXGBE_MAX_ARGS);
+			memset(action, 0, sizeof(*action) * IXGBE_MAX_ACTION);
+			
 			flow.table_id = IXGBE_FDIR_TABLE;
-			flow.uid = 99;
-			flow.priority = 98;
+			flow.uid = ++i;
+			flow.priority = 0;
 			
 			/* TBD: generate defines so header/fields/actions are
 			 * not magic values
@@ -8119,23 +8134,23 @@ static int ixgbe_flow_table_get_flows(struct sk_buff *skb,
 			}
 
 			if (rule->action == IXGBE_FDIR_DROP_QUEUE) {
-				action.uid = 3;
+				action[0].uid = 3;
 			} else  {
 				args[0].type = NET_FLOW_ACTION_ARG_TYPE_U32;
 				args[0].value_u32 = rule->action;
 
-				action.uid = 2;
-				acnt = argcnt = 1;
+				action[0].uid = 2;
 			}
 
-			action.args = args;
+			action[0].args = args;
 			flow.matches = ref;
-			flow.actions =  &action;
+			flow.actions =  action;
 
-			net_flow_put_flow(skb, &flow, count, acnt, argcnt);
-			kfree(ref);
-			kfree(args);
+			net_flow_put_flow(skb, &flow);
 		}
+		kfree(ref);
+		kfree(args);
+		kfree(action);
 	}
 
 	return 0;
