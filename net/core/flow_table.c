@@ -237,10 +237,8 @@ static int net_flow_put_table(struct net_device *dev,
 			      struct sk_buff *skb,
 			      struct net_flow_table *t)
 {
-	struct nlattr *matches, *flow, *actions;
+	struct nlattr *matches, *actions;
 	int i;
-
-	flow = NULL; /* must null to get unwind correct */
 
 	if (nla_put_string(skb, NET_FLOW_TABLE_ATTR_NAME, t->name) ||
 	    nla_put_u32(skb, NET_FLOW_TABLE_ATTR_UID, t->uid) ||
@@ -272,13 +270,6 @@ static int net_flow_put_table(struct net_device *dev,
 	}
 	nla_nest_end(skb, actions);
 
-	flow = nla_nest_start(skb, NET_FLOW_TABLE_ATTR_FLOWS);
-	if (!flow)
-		return -EMSGSIZE;
-
-	if (dev->netdev_ops->ndo_bridge_getflows)
-		dev->netdev_ops->ndo_bridge_getflows(dev, t->uid, skb);
-	nla_nest_end(skb, flow);
 	return 0;
 }
 

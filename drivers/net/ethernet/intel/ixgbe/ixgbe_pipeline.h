@@ -309,7 +309,6 @@ struct net_flow_table ixgbe_l2_table = {
 	.size = 128,
 	.matches = l2_matches,
 	.actions = ixgbe_l2_actions,
-	.flows = NULL,
 };
 
 struct net_flow_table ixgbe_fdir_table = {
@@ -319,7 +318,6 @@ struct net_flow_table ixgbe_fdir_table = {
 	.size = 2000,
 	.matches = fdir_matches,
 	.actions = ixgbe_fdir_actions,
-	.flows = NULL,
 };
 
 struct net_flow_table ixgbe_nil_table = {.name = "", .uid = 0};

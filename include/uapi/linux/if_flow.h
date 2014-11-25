@@ -406,7 +406,6 @@ struct net_flow_table {
 	int size;
 	struct net_flow_field_ref *matches;
 	net_flow_action_ref *actions;
-	struct net_flow_flow *flows;
 };
 
 enum {
