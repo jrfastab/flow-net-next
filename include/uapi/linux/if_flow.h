@@ -34,7 +34,7 @@
  *       [NET_FLOW_TABLE_ATTR_NAME]
  *       [NET_FLOW_TABLE_ATTR_UID]
  *       [NET_FLOW_TABLE_ATTR_SOURCE]
- *       [NET_FLOW_TABLE_SIZE]
+ *       [NET_FLOW_TABLE_ATTR_SIZE]
  *	 [NET_FLOW_TABLE_ATTR_MATCHES]
  *	   [NET_FLOW_FIELD_REF]
  *	   [NET_FLOW_FIELD_REF]
@@ -226,6 +226,12 @@ enum {
 };
 #define NET_FLOW_HEADER_ATTR_MAX (__NET_FLOW_HEADER_ATTR_MAX - 1)
 
+enum {
+	NET_FLOW_MASK_TYPE_UNSPEC,
+	NET_FLOW_MASK_TYPE_EXACT,
+	NET_FLOW_MASK_TYPE_LPM,
+};
+
 /**
  * @struct net_flow_field_ref
  * @brief uniquely identify field as header:field tuple
@@ -234,6 +240,7 @@ struct net_flow_field_ref {
 	int instance;
 	int header;
 	int field;
+	int mask_type;
 	int type;
 	union {	/* Are these all the required data types */
 		__u8 value_u8;
@@ -423,7 +430,6 @@ enum {
 	NET_FLOW_TABLE_ATTR_SIZE,
 	NET_FLOW_TABLE_ATTR_MATCHES,
 	NET_FLOW_TABLE_ATTR_ACTIONS,
-	NET_FLOW_TABLE_ATTR_FLOWS,
 	__NET_FLOW_TABLE_ATTR_MAX,
 };
 #define NET_FLOW_TABLE_ATTR_MAX (__NET_FLOW_TABLE_ATTR_MAX - 1)

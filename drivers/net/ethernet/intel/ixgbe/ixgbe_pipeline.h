@@ -271,19 +271,19 @@ struct net_flow_action nil_action = {
 
 struct net_flow_field_ref fdir_matches[8] =
 {
-	{ .instance = HEADER_INSTANCE_VLAN_OUTER, .header = HEADER_VLAN, .field = 3},
-	{ .instance = HEADER_INSTANCE_VLAN_OUTER, .header = HEADER_VLAN, .field = 4},
-	{ .instance = HEADER_INSTANCE_IP, .header = HEADER_IPV4, .field = 12},
-	{ .instance = HEADER_INSTANCE_IP, .header = HEADER_IPV4, .field = 13},
-	{ .instance = HEADER_INSTANCE_TCP, .header = HEADER_TCP, .field = 1},
-	{ .instance = HEADER_INSTANCE_TCP, .header = HEADER_TCP, .field = 2},
-	{ .instance = HEADER_INSTANCE_TCP, .header = HEADER_TCP, .field = 7},
+	{ .instance = HEADER_INSTANCE_VLAN_OUTER, .header = HEADER_VLAN, .field = 3, .mask_type = NET_FLOW_MASK_TYPE_EXACT},
+	{ .instance = HEADER_INSTANCE_VLAN_OUTER, .header = HEADER_VLAN, .field = 4, .mask_type = NET_FLOW_MASK_TYPE_EXACT},
+	{ .instance = HEADER_INSTANCE_IP, .header = HEADER_IPV4, .field = 12, .mask_type = NET_FLOW_MASK_TYPE_EXACT},
+	{ .instance = HEADER_INSTANCE_IP, .header = HEADER_IPV4, .field = 13, .mask_type = NET_FLOW_MASK_TYPE_EXACT},
+	{ .instance = HEADER_INSTANCE_TCP, .header = HEADER_TCP, .field = 1, .mask_type = NET_FLOW_MASK_TYPE_EXACT},
+	{ .instance = HEADER_INSTANCE_TCP, .header = HEADER_TCP, .field = 2, .mask_type = NET_FLOW_MASK_TYPE_EXACT},
+	{ .instance = HEADER_INSTANCE_TCP, .header = HEADER_TCP, .field = 7, .mask_type = NET_FLOW_MASK_TYPE_EXACT},
 	{ .instance = 0, .field = 0},
 };
 
 struct net_flow_field_ref l2_matches[2] =
 {
-	{ .instance = HEADER_INSTANCE_ETHERNET, .header = HEADER_ETHERNET, .field = 2, },
+	{ .instance = HEADER_INSTANCE_ETHERNET, .header = HEADER_ETHERNET, .field = 2, .mask_type = NET_FLOW_MASK_TYPE_EXACT},
 	{ .instance = 0, .field = 0, },
 };
 

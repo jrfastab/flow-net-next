@@ -65,7 +65,6 @@ struct nla_policy net_flow_table_policy[NET_FLOW_TABLE_ATTR_MAX + 1] = {
 	[NET_FLOW_TABLE_ATTR_SIZE]	= { .type = NLA_U32 },
 	[NET_FLOW_TABLE_ATTR_MATCHES]	= { .type = NLA_NESTED },
 	[NET_FLOW_TABLE_ATTR_ACTIONS]	= { .type = NLA_NESTED },
-	[NET_FLOW_TABLE_ATTR_FLOWS]	= { .type = NLA_NESTED },
 };
 
 static int net_flow_put_act_types(struct sk_buff *skb,
