@@ -142,6 +142,7 @@
  *      
  * Add Flow descriptions
  *
+ * [NET_FLOW_FLOWS_ERROR]
  * [NET_FLOW_FLOWS]
  *   [NET_FLOW_FLOW]
  *     [NET_FLOW_ATTR_TABLE]
@@ -385,7 +386,17 @@ enum {
 #define NET_FLOW_TABLE_FLOWS_MAX (__NET_FLOW_TABLE_FLOWS_MAX - 1)
 
 enum {
+	NET_FLOW_FLOWS_ERROR_ABORT,	/* Abort with normal errmsg */
+	NET_FLOW_FLOWS_ERROR_CONTINUE,	/* Ignore errors and continue without logging */
+	NET_FLOW_FLOWS_ERROR_ABORT_LOG,	/* Abort and reply with invalid flow fields */
+	NET_FLOW_FLOWS_ERROR_CONT_LOG,	/* Continue and reply with list of invalid flows */
+	__NET_FLOWS_FLOWS_ERROR_MAX,
+};
+#define NET_FLOWS_FLOWS_ERROR_MAX (__NET_FLOWS_FLOWS_ERROR_MAX - 1)
+
+enum {
 	NET_FLOW_ATTR_UNSPEC,
+	NET_FLOW_ATTR_ERROR,
 	NET_FLOW_ATTR_TABLE,
 	NET_FLOW_ATTR_UID,
 	NET_FLOW_ATTR_PRIORITY,
@@ -580,6 +591,7 @@ enum {
 	NET_FLOW_HEADER_GRAPH,
 	NET_FLOW_TABLE_GRAPH,
 	NET_FLOW_FLOWS,
+	NET_FLOW_FLOWS_ERROR,
 
 	__NET_FLOW_MAX,
 	NET_FLOW_MAX = (__NET_FLOW_MAX - 1),

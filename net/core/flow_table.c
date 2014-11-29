@@ -1181,12 +1181,57 @@ out:
 	return -EINVAL;
 }
 
-static int net_flow_table_cmd_flows(struct sk_buff *skb,
+struct sk_buff *net_flow_start_flow_errmsg(struct net_device *dev,
+					   struct genlmsghdr **hdr,
+					   u32 portid, int seq, u8 cmd)
+{
+	struct genlmsghdr *h;
+	struct sk_buff *skb;
+	int err = -ENOBUFS;
+
+	skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+	if (!skb)
+		return ERR_PTR(-ENOBUFS);
+
+	h = genlmsg_put(skb, portid, seq, &net_flow_nl_family, 0, cmd);
+	if (!h)
+		goto out;
+
+	if (nla_put_u32(skb, NET_FLOW_IDENTIFIER_TYPE, NET_FLOW_IDENTIFIER_IFINDEX) ||
+	    nla_put_u32(skb, NET_FLOW_IDENTIFIER, dev->ifindex)) {
+		err = -ENOBUFS;
+		goto out;
+	}
+
+	*hdr = h;
+	return skb;
+out:
+	return ERR_PTR(err);
+}
+
+struct sk_buff *net_flow_end_flow_errmsg(struct sk_buff *skb,
+					 struct genlmsghdr *hdr)
+{
+	int err;
+
+	err = genlmsg_end(skb, hdr);
+	if (err < 0) {
+		nlmsg_free(skb);
+		return ERR_PTR(err);
+	}
+
+	return skb;
+}
+
+static int net_flow_table_cmd_flows(struct sk_buff *recv_skb,
 				    struct genl_info *info)
 {
-	struct nlattr *flow;
-	int rem, err;
+	int rem, err, err_handle = NET_FLOW_FLOWS_ERROR_ABORT;
+	struct sk_buff *skb = NULL;
+	struct net_flow_flow this;
+	struct genlmsghdr *hdr;
 	struct net_device *dev;
+	struct nlattr *flow, *flows;
 	int cmd = info->genlhdr->cmd;
 
 	dev = net_flow_table_get_dev(info);
@@ -1208,26 +1253,56 @@ static int net_flow_table_cmd_flows(struct sk_buff *skb,
 		goto out;
 	}
 
-	nla_for_each_nested(flow, info->attrs[NET_FLOW_FLOWS], rem) {
-		struct net_flow_flow this;
+	if (info->attrs[NET_FLOW_FLOWS_ERROR])
+		err_handle = nla_get_u32(info->attrs[NET_FLOW_FLOWS_ERROR]);
 
+	nla_for_each_nested(flow, info->attrs[NET_FLOW_FLOWS], rem) {
 		err = net_flow_get_flow(&this, flow);
 		if (err)
 			goto out;
 
 		err = dev->netdev_ops->ndo_flow_table_set_flows(dev, &this);
-		if (err) {
-			printk("err from ndo %i\n", err);
-			goto out;
+		if (err && err_handle != NET_FLOW_FLOWS_ERROR_CONTINUE) {
+			if (!skb) {
+				skb = net_flow_start_flow_errmsg(dev, &hdr,
+								 info->snd_portid,
+								 info->snd_seq,
+								 NET_FLOW_TABLE_CMD_SET_FLOWS);
+				if (IS_ERR(skb)) {
+					err = PTR_ERR(skb);
+					goto out_plus_free;	
+				}
+
+				flows = nla_nest_start(skb, NET_FLOW_FLOWS);
+				if (!flows) {
+					err = -EMSGSIZE;
+					goto out_plus_free;
+				}
+			}
+
+			net_flow_put_flow(skb, &this);
 		}
 
 		/* Cleanup flow */
 		kfree(this.matches);
 		kfree(this.actions);
+
+		if (err && err_handle == NET_FLOW_FLOWS_ERROR_ABORT)
+			goto out;
 	}
 
 	dev_put(dev);
+
+	if (skb) {
+		nla_nest_end(skb, flows);
+		net_flow_end_flow_errmsg(skb, hdr);
+		return genlmsg_reply(skb, info);
+	}
 	return 0;
+
+out_plus_free:
+	kfree(this.matches);
+	kfree(this.actions);
 out:
 	dev_put(dev);
 	return -EINVAL;
