@@ -1238,8 +1238,8 @@ static int net_flow_table_cmd_flows(struct sk_buff *recv_skb,
 	if (!dev)
 		return -EINVAL;
 
-	if (cmd != NET_FLOW_TABLE_CMD_SET_FLOWS)
-		return -EOPNOTSUPP; /* TBD del, update */
+	if (cmd == NET_FLOW_TABLE_CMD_UPDATE_FLOWS)
+		return -EOPNOTSUPP; /* TBD update */
 
 	if (!dev->netdev_ops->ndo_flow_table_set_flows) {
 		dev_put(dev);
@@ -1261,7 +1261,18 @@ static int net_flow_table_cmd_flows(struct sk_buff *recv_skb,
 		if (err)
 			goto out;
 
-		err = dev->netdev_ops->ndo_flow_table_set_flows(dev, &this);
+		switch (cmd) {
+		case NET_FLOW_TABLE_CMD_SET_FLOWS:
+			err = dev->netdev_ops->ndo_flow_table_set_flows(dev, &this);
+			break;
+		case NET_FLOW_TABLE_CMD_DEL_FLOWS:
+			err = dev->netdev_ops->ndo_flow_table_del_flows(dev, &this);
+			break;
+		default:
+			err = -EOPNOTSUPP;
+			break;
+		}
+
 		if (err && err_handle != NET_FLOW_FLOWS_ERROR_CONTINUE) {
 			if (!skb) {
 				skb = net_flow_start_flow_errmsg(dev, &hdr,
