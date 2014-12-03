@@ -497,12 +497,13 @@ struct net_flow_jump_table ixgbe_table_node_l2_jump[2] = {
 	},
 };
 
-struct net_flow_table_graph_node ixgbe_table_node_l2 = {
+struct net_flow_table_graph_node ixgbe_table_node_l2_ingress = {
 	.uid = 1,
+	.flags = NET_FLOW_TABLE_INGRESS_ROOT,
 	.jump = ixgbe_table_node_l2_jump,
 };
 
-struct net_flow_jump_table ixgbe_table_node_fdir_jump[2] = {
+struct net_flow_jump_table ixgbe_table_node_done[2] = {
 	{
 		.field = {0},
 		.node = NET_FLOW_JUMP_TABLE_DONE,
@@ -510,12 +511,19 @@ struct net_flow_jump_table ixgbe_table_node_fdir_jump[2] = {
 	{
 		.field = {0},
 		.node = 0,
-}
+	}
+};
+
+struct net_flow_table_graph_node ixgbe_table_node_l2_egress = {
+	.uid = 3,
+	.flags = NET_FLOW_TABLE_EGRESS_ROOT,
+	.jump = ixgbe_table_node_done,
 };
 
 struct net_flow_table_graph_node ixgbe_table_node_fdir = {
 	.uid = 2,
-	.jump = ixgbe_table_node_fdir_jump,
+	.flags = 0,
+	.jump = ixgbe_table_node_done,
 };
 
 struct net_flow_table_graph_node ixgbe_table_node_nil = {
@@ -523,9 +531,10 @@ struct net_flow_table_graph_node ixgbe_table_node_nil = {
 	.jump = NULL,
 };
 
-struct net_flow_table_graph_node *ixgbe_table_graph_nodes[3] = {
-	&ixgbe_table_node_l2,
+struct net_flow_table_graph_node *ixgbe_table_graph_nodes[4] = {
+	&ixgbe_table_node_l2_ingress,
 	&ixgbe_table_node_fdir,
+	&ixgbe_table_node_l2_egress,
 	&ixgbe_table_node_nil,
 };
 

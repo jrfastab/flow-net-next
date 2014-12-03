@@ -551,14 +551,19 @@ enum {
 };
 #define NET_FLOW_HEADER_GRAPH_MAX (__NET_FLOW_HEADER_GRAPH_MAX - 1)
 
+#define NET_FLOW_TABLE_EGRESS_ROOT 1
+#define	NET_FLOW_TABLE_INGRESS_ROOT 2
+
 struct net_flow_table_graph_node {
 	int uid;
+	__u32 flags;
 	struct net_flow_jump_table *jump;
 };
 
 enum {
 	NET_FLOW_TABLE_GRAPH_NODE_UNSPEC,
 	NET_FLOW_TABLE_GRAPH_NODE_UID,
+	NET_FLOW_TABLE_GRAPH_NODE_FLAGS,
 	NET_FLOW_TABLE_GRAPH_NODE_JUMP,
 	__NET_FLOW_TABLE_GRAPH_NODE_MAX,
 };

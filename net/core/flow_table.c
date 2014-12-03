@@ -966,7 +966,8 @@ static int net_flow_put_table_node(struct sk_buff *skb,
 	if (!nest)
 		return err;
 
-	if (nla_put_u32(skb, NET_FLOW_TABLE_GRAPH_NODE_UID, node->uid))
+	if (nla_put_u32(skb, NET_FLOW_TABLE_GRAPH_NODE_UID, node->uid) ||
+	    nla_put_u32(skb, NET_FLOW_TABLE_GRAPH_NODE_FLAGS, node->flags))
 		goto node_put_failure;
 
 	jump = nla_nest_start(skb, NET_FLOW_TABLE_GRAPH_NODE_JUMP);
