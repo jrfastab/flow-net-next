@@ -1163,7 +1163,7 @@ struct net_device_ops {
 							    struct net_flow_flow *f);
 	int		        (*ndo_flow_table_del_flows)(struct net_device *dev,
 							    struct net_flow_flow *f);
-	int  *(*ndo_flow_table_create_table)(struct net_device *dev,
+	int  (*ndo_flow_table_create_table)(struct net_device *dev,
 					     struct net_flow_table *t);
 };
 

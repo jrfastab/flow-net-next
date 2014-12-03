@@ -83,8 +83,8 @@ static int net_flow_put_act_types(struct sk_buff *skb,
 
 static const
 struct nla_policy net_flow_action_policy[NET_FLOW_ACTION_ATTR_MAX + 1] = {
-	[NET_FLOW_ACTION_ATTR_NAME] = {.type = NLA_STRING, .len = IFNAMSIZ-1 },
-	[NET_FLOW_ACTION_ATTR_UID]	      = {.type = NLA_U32 },
+	[NET_FLOW_ACTION_ATTR_NAME]	 = {.type = NLA_STRING, .len = IFNAMSIZ-1 },
+	[NET_FLOW_ACTION_ATTR_UID]	 = {.type = NLA_U32 },
 	[NET_FLOW_ACTION_ATTR_SIGNATURE] = {.type = NLA_NESTED },
 };
 
@@ -285,9 +285,16 @@ int net_flow_put_tables(struct net_device *dev,
 
 	for (i = 0; tables[i]->uid; i++) {
 		t = nla_nest_start(skb, NET_FLOW_TABLE);
-		err = net_flow_put_table(dev, skb, tables[i]);
-		if (err)
+		if (!t) {
+			err = -EMSGSIZE;
 			goto errout;
+		}
+
+		err = net_flow_put_table(dev, skb, tables[i]);
+		if (err) {
+			nla_nest_cancel(skb, t);
+			goto errout;
+		}
 		nla_nest_end(skb, t);
 	}
 	nla_nest_end(skb, nest);
@@ -365,13 +372,14 @@ int net_flow_put_headers(struct sk_buff *skb,
 {
 	struct nlattr *nest, *hdr, *fields;
 	struct net_flow_header *h;
-	int i;
+	int i, err;
 
 	nest = nla_nest_start(skb, NET_FLOW_HEADERS);
 	if (!nest)
-		goto hdr_put_failure;
+		return -EMSGSIZE;
 		
 	for (i = 0; headers[i]->uid; i++) {
+		err = -EMSGSIZE;
 		h = headers[i];
  
 		hdr = nla_nest_start(skb, NET_FLOW_HEADER);
@@ -384,8 +392,12 @@ int net_flow_put_headers(struct sk_buff *skb,
 
 		fields = nla_nest_start(skb, NET_FLOW_HEADER_ATTR_FIELDS);
 		if (!fields)
+			goto attr_put_failure;
+
+		err = net_flow_put_fields(skb, h);
+		if (err)
 			goto fields_put_failure;
-		net_flow_put_fields(skb, h);
+
 		nla_nest_end(skb, fields);
 
 		nla_nest_end(skb, hdr);
@@ -394,10 +406,12 @@ int net_flow_put_headers(struct sk_buff *skb,
 
 	return 0;
 fields_put_failure:
+	nla_nest_cancel(skb, fields);
 attr_put_failure:
 	nla_nest_cancel(skb, hdr);
 hdr_put_failure:
-	return -EMSGSIZE;
+	nla_nest_cancel(skb, nest);
+	return err;
 }
 
 struct sk_buff *net_flow_build_headers_msg(struct net_flow_header **h,
@@ -439,10 +453,11 @@ out:
 static int net_flow_get_field(struct net_flow_field_ref *field,
 			      struct nlattr *nla)
 {
-	if (nla_type(nla) != NET_FLOW_FIELD_REF) {
-		pr_warn("%s: error unexpected field\n", __func__);
+	if (nla_type(nla) != NET_FLOW_FIELD_REF)
 		return -EINVAL;
-	}
+
+	if (nla_len(nla) < sizeof(*field))
+		return -EINVAL;
 
 	*field = *(struct net_flow_field_ref *) nla_data(nla);
 	return 0;
@@ -462,6 +477,8 @@ static int net_flow_get_action(struct net_flow_action *a, struct nlattr *attr)
 
 	err = nla_parse_nested(act, NET_FLOW_ACTION_ATTR_MAX,
 			       attr, net_flow_action_policy);
+	if (err < 0)
+		return err;
 
 	a->uid = nla_get_u32(act[NET_FLOW_ACTION_ATTR_UID]);
 
@@ -472,10 +489,12 @@ static int net_flow_get_action(struct net_flow_action *a, struct nlattr *attr)
 	count = 0;
 
 	nla_for_each_nested(args, act[NET_FLOW_ACTION_ATTR_SIGNATURE], rem) {
-		if (nla_type(args) != NET_FLOW_ACTION_ARG) {
-			pr_warn("%s: expected NET_FLOW_ACTION_ATTR_ARG_TYPE\n",
-				__func__);
+		if (nla_type(args) != NET_FLOW_ACTION_ARG)
 			continue;
+
+		if (nla_len(args) < sizeof(struct net_flow_action_arg)) {
+			kfree(a->args);
+			return -EINVAL;
 		}
 
 		a->args[count] = *(struct net_flow_action_arg *) nla_data(args);
@@ -490,16 +509,9 @@ static int net_flow_get_flow(struct net_flow_flow *flow, struct nlattr *attr)
 	int rem, err;
 	int count = 0;
 
-	if (nla_type(attr) != NET_FLOW_FLOW) {
-		pr_warn("%s: unknown field in table/flows\n", __func__);
-		return -EINVAL;
-	}
-
 	err = nla_parse_nested(f, NET_FLOW_ATTR_MAX, attr, net_flow_flow_policy);
-	if (err < 0) { /* TBD remove warns or at least rate lmit */
-		pr_warn("%s: flow flow attr parse error\n", __func__);
+	if (err < 0)
 		return -EINVAL;
-	}
 
 	flow->table_id = nla_get_u32(f[NET_FLOW_ATTR_TABLE]);
 	flow->uid = nla_get_u32(f[NET_FLOW_ATTR_UID]);
@@ -520,7 +532,11 @@ static int net_flow_get_flow(struct net_flow_flow *flow, struct nlattr *attr)
 
 		count = 0;
 		nla_for_each_nested(attr2, f[NET_FLOW_ATTR_MATCHES], rem) {
-			net_flow_get_field(&flow->matches[count], attr2);
+			err = net_flow_get_field(&flow->matches[count], attr2);
+			if (err) {
+				kfree(flow->matches);
+				return err;
+			}
 			count++;
 		}
 	}
@@ -539,7 +555,12 @@ static int net_flow_get_flow(struct net_flow_flow *flow, struct nlattr *attr)
 
 		count = 0;
 		nla_for_each_nested(attr2, f[NET_FLOW_ATTR_ACTIONS], rem) {
-			net_flow_get_action(&flow->actions[count], attr2);
+			err = net_flow_get_action(&flow->actions[count], attr2);
+			if (err) {
+				kfree(flow->matches);
+				kfree(flow->actions);
+				return err;
+			}
 			count++;
 		}
 	}
@@ -603,7 +624,9 @@ static int net_flow_get_table(struct net_flow_table *table, struct nlattr *nla)
 
 		cnt = 0;
 		nla_for_each_nested(i, tbl[NET_FLOW_TABLE_ATTR_MATCHES], rem) {
-			net_flow_get_field(&table->matches[cnt], i);
+			err = net_flow_get_field(&table->matches[cnt], i);
+			if (err)
+				goto matches_err_out;
 			cnt++;
 		}
 	}
@@ -614,20 +637,30 @@ static int net_flow_get_table(struct net_flow_table *table, struct nlattr *nla)
 			cnt++;
 
 		table->actions = kzalloc((cnt + 1) * sizeof (struct net_flow_field_ref), GFP_KERNEL);
-		if (!table->actions)
-			goto out;
+		if (!table->actions) {
+			err = -ENOMEM;
+			goto matches_err_out;
+		}
 
 		cnt = 0;
+		err = -EINVAL;
+
 		nla_for_each_nested(i, tbl[NET_FLOW_TABLE_ATTR_ACTIONS], rem) {
+			if (nla_type(i) != NET_FLOW_ACTION_ATTR_UID)
+				continue;
+			if (nla_len(nla) < sizeof(u32))
+				goto action_err_out;
 			table->actions[cnt] = nla_get_u32(i);
 			cnt++;
 		}
 	}
 
 	return 0;
-out:
+action_err_out:
+	kfree(table->actions);
+matches_err_out:
 	kfree(table->matches);
-	return -ENOMEM;
+	return err;
 }
 
 static int net_flow_table_cmd_create_tables(struct sk_buff *skb,
@@ -656,15 +689,21 @@ static int net_flow_table_cmd_create_tables(struct sk_buff *skb,
 	nla_for_each_nested(tattr, info->attrs[NET_FLOW_TABLES], rem) {
 		struct net_flow_table this = {.name = "", .uid = 0,};
 
+		if (nla_type(tattr) != NET_FLOW_TABLE)
+			continue;
+
 		err = net_flow_get_table(&this, tattr);
 		if (err)
 			goto out;
 
-		dev->netdev_ops->ndo_flow_table_create_table(dev, &this);
+		err = dev->netdev_ops->ndo_flow_table_create_table(dev, &this);
 
 		/* Cleanup table */
 		kfree(this.matches);
 		kfree(this.actions);
+
+		if (err)
+			return err;
 	}
 
 	dev_put(dev);
@@ -867,8 +906,10 @@ static int net_flow_put_header_graph(struct sk_buff *skb,
 
 	for (i = 0; g[i]->uid; i++) {
 		node = nla_nest_start(skb, NET_FLOW_HEADER_GRAPH_NODE);
-		if (!node)
+		if (!node) {
+			err = -EMSGSIZE;
 			goto nodes_put_error;
+		}
 
 		err = net_flow_put_header_node(skb, g[i]);
 		if (err)
@@ -883,7 +924,7 @@ node_put_error:
 	nla_nest_cancel(skb, node);
 nodes_put_error:
 	nla_nest_cancel(skb, nodes);	
-	return -EMSGSIZE;
+	return err;
 }
 
 static
@@ -999,7 +1040,7 @@ static int net_flow_put_table_graph(struct sk_buff *skb,
 	int err, i = 0;
 
 	graph = nla_nest_start(skb, NET_FLOW_TABLE_GRAPH);
-	if (!nodes)
+	if (!graph)
 		return -EMSGSIZE;
 
 	for (i = 0; nodes[i]->uid; i++) {
@@ -1107,10 +1148,16 @@ struct sk_buff *net_flow_build_flows_msg(struct net_device *dev,
 	}
 
 	flows = nla_nest_start(skb, NET_FLOW_FLOWS);
+	if (!flows) {
+		err = -EMSGSIZE;
+		goto out;
+	}
+
 	err = dev->netdev_ops->ndo_flow_table_get_flows(skb, dev,
 							table, min, max);
 	if (err < 0)
-		goto out;
+		goto out_cancel;
+
 	nla_nest_end(skb, flows);
 	
 	err = genlmsg_end(skb, hdr);
@@ -1118,6 +1165,8 @@ struct sk_buff *net_flow_build_flows_msg(struct net_device *dev,
 		goto out;
 
 	return skb;
+out_cancel:
+	nla_nest_cancel(skb, flows);
 out:
 	nlmsg_free(skb);
 	return ERR_PTR(err);
@@ -1135,9 +1184,10 @@ static int net_flow_table_cmd_get_flows(struct sk_buff *skb,
 					struct genl_info *info)
 {
 	struct nlattr *tb[NET_FLOW_TABLE_FLOWS_MAX+1];
-	int err, table, min = -1, max = -1;
+	int table, min = -1, max = -1;
 	struct net_device *dev;
 	struct sk_buff *msg;
+	int err = -EINVAL;
 
 	dev = net_flow_table_get_dev(info);
 	if (!dev)
@@ -1179,7 +1229,7 @@ static int net_flow_table_cmd_get_flows(struct sk_buff *skb,
 	return genlmsg_reply(msg, info);
 out:
 	dev_put(dev);
-	return -EINVAL;
+	return err;
 }
 
 struct sk_buff *net_flow_start_flow_errmsg(struct net_device *dev,
@@ -1188,26 +1238,21 @@ struct sk_buff *net_flow_start_flow_errmsg(struct net_device *dev,
 {
 	struct genlmsghdr *h;
 	struct sk_buff *skb;
-	int err = -ENOBUFS;
 
 	skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
 	if (!skb)
-		return ERR_PTR(-ENOBUFS);
+		return ERR_PTR(-EMSGSIZE);
 
 	h = genlmsg_put(skb, portid, seq, &net_flow_nl_family, 0, cmd);
 	if (!h)
-		goto out;
+		return ERR_PTR(-EMSGSIZE);
 
 	if (nla_put_u32(skb, NET_FLOW_IDENTIFIER_TYPE, NET_FLOW_IDENTIFIER_IFINDEX) ||
-	    nla_put_u32(skb, NET_FLOW_IDENTIFIER, dev->ifindex)) {
-		err = -ENOBUFS;
-		goto out;
-	}
+	    nla_put_u32(skb, NET_FLOW_IDENTIFIER, dev->ifindex))
+		return ERR_PTR(-EMSGSIZE);
 
 	*hdr = h;
 	return skb;
-out:
-	return ERR_PTR(err);
 }
 
 struct sk_buff *net_flow_end_flow_errmsg(struct sk_buff *skb,
@@ -1227,30 +1272,29 @@ struct sk_buff *net_flow_end_flow_errmsg(struct sk_buff *skb,
 static int net_flow_table_cmd_flows(struct sk_buff *recv_skb,
 				    struct genl_info *info)
 {
-	int rem, err, err_handle = NET_FLOW_FLOWS_ERROR_ABORT;
+	int rem, err_handle = NET_FLOW_FLOWS_ERROR_ABORT;
 	struct sk_buff *skb = NULL;
 	struct net_flow_flow this;
 	struct genlmsghdr *hdr;
 	struct net_device *dev;
 	struct nlattr *flow, *flows;
 	int cmd = info->genlhdr->cmd;
+	int err = -EOPNOTSUPP;
 
 	dev = net_flow_table_get_dev(info);
 	if (!dev)
 		return -EINVAL;
 
 	if (cmd == NET_FLOW_TABLE_CMD_UPDATE_FLOWS)
-		return -EOPNOTSUPP; /* TBD update */
+		goto out; /* TBD Update */
 
-	if (!dev->netdev_ops->ndo_flow_table_set_flows) {
-		dev_put(dev);
-		return -EOPNOTSUPP;
-	}
+	if (!dev->netdev_ops->ndo_flow_table_set_flows)
+		goto out;
 
 	if (!info->attrs[NET_FLOW_IDENTIFIER_TYPE] ||
 	    !info->attrs[NET_FLOW_IDENTIFIER] ||
 	    !info->attrs[NET_FLOW_FLOWS]) {
-		printk("%s: received flows set cmd without preamble\n", __func__);
+		err = -EINVAL;
 		goto out;
 	}
 
@@ -1258,6 +1302,9 @@ static int net_flow_table_cmd_flows(struct sk_buff *recv_skb,
 		err_handle = nla_get_u32(info->attrs[NET_FLOW_FLOWS_ERROR]);
 
 	nla_for_each_nested(flow, info->attrs[NET_FLOW_FLOWS], rem) {
+		if (nla_type(flow) != NET_FLOW_FLOW)
+			continue;
+
 		err = net_flow_get_flow(&this, flow);
 		if (err)
 			goto out;
@@ -1316,6 +1363,8 @@ out_plus_free:
 	kfree(this.matches);
 	kfree(this.actions);
 out:
+	if (!IS_ERR(skb))
+		nlmsg_free(skb);
 	dev_put(dev);
 	return -EINVAL;
 }
