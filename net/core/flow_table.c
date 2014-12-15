@@ -674,7 +674,7 @@ static int net_flow_table_cmd_create_tables(struct sk_buff *skb,
 	if (!dev)
 		return -EINVAL;
 
-	if (!dev->netdev_ops->ndo_flow_table_create_table) {
+	if (!dev->netdev_ops->ndo_flow_create_table) {
 		dev_put(dev);
 		return -EOPNOTSUPP;
 	}
@@ -696,7 +696,7 @@ static int net_flow_table_cmd_create_tables(struct sk_buff *skb,
 		if (err)
 			goto out;
 
-		err = dev->netdev_ops->ndo_flow_table_create_table(dev, &this);
+		err = dev->netdev_ops->ndo_flow_create_table(dev, &this);
 
 		/* Cleanup table */
 		kfree(this.matches);
@@ -730,12 +730,12 @@ static int net_flow_table_cmd_get_tables(struct sk_buff *skb,
 	if (!dev)
 		return -EINVAL;
 
-	if (!dev->netdev_ops->ndo_flow_table_get_tables) {
+	if (!dev->netdev_ops->ndo_flow_get_tables) {
 		dev_put(dev);
 		return -EOPNOTSUPP;
 	}
 
-	tables = dev->netdev_ops->ndo_flow_table_get_tables(dev);
+	tables = dev->netdev_ops->ndo_flow_get_tables(dev);
 	if (!tables) /* transient failure should always have some table */
 		return -EBUSY;
 
@@ -762,12 +762,12 @@ static int net_flow_table_cmd_get_headers(struct sk_buff *skb,
 	if (!dev)
 		return -EINVAL;
 
-	if (!dev->netdev_ops->ndo_flow_table_get_headers) {
+	if (!dev->netdev_ops->ndo_flow_get_headers) {
 		dev_put(dev);
 		return -EOPNOTSUPP;
 	}
 
-	h = dev->netdev_ops->ndo_flow_table_get_headers(dev);
+	h = dev->netdev_ops->ndo_flow_get_headers(dev);
 	if (!h)
 		return -EBUSY;
 
@@ -831,12 +831,12 @@ static int net_flow_table_cmd_get_actions(struct sk_buff *skb,
 	if (!dev)
 		return -EINVAL;
 
-	if (!dev->netdev_ops->ndo_flow_table_get_actions) {
+	if (!dev->netdev_ops->ndo_flow_get_actions) {
 		dev_put(dev);
 		return -EOPNOTSUPP;
 	}
 
-	a = dev->netdev_ops->ndo_flow_table_get_actions(dev);
+	a = dev->netdev_ops->ndo_flow_get_actions(dev);
 	if (!a)
 		return -EBUSY;
 
@@ -976,12 +976,12 @@ static int net_flow_table_cmd_get_header_graph(struct sk_buff *skb,
 	if (!dev)
 		return -EINVAL;
 
-	if (!dev->netdev_ops->ndo_flow_table_get_hdr_graph) {
+	if (!dev->netdev_ops->ndo_flow_get_hdr_graph) {
 		dev_put(dev);
 		return -EOPNOTSUPP;
 	}
 
-	h = dev->netdev_ops->ndo_flow_table_get_hdr_graph(dev);
+	h = dev->netdev_ops->ndo_flow_get_hdr_graph(dev);
 	if (!h)
 		return -EBUSY;
 
@@ -1103,12 +1103,12 @@ static int net_flow_table_cmd_get_table_graph(struct sk_buff *skb,
 	if (!dev)
 		return -EINVAL;
 
-	if (!dev->netdev_ops->ndo_flow_table_get_tbl_graph) {
+	if (!dev->netdev_ops->ndo_flow_get_tbl_graph) {
 		dev_put(dev);
 		return -EOPNOTSUPP;
 	}
 
-	g = dev->netdev_ops->ndo_flow_table_get_tbl_graph(dev);
+	g = dev->netdev_ops->ndo_flow_get_tbl_graph(dev);
 	if (!g)
 		return -EBUSY;
 
@@ -1153,7 +1153,7 @@ struct sk_buff *net_flow_build_flows_msg(struct net_device *dev,
 		goto out;
 	}
 
-	err = dev->netdev_ops->ndo_flow_table_get_flows(skb, dev,
+	err = dev->netdev_ops->ndo_flow_get_flows(skb, dev,
 							table, min, max);
 	if (err < 0)
 		goto out_cancel;
@@ -1193,7 +1193,7 @@ static int net_flow_table_cmd_get_flows(struct sk_buff *skb,
 	if (!dev)
 		return -EINVAL;
 
-	if (!dev->netdev_ops->ndo_flow_table_get_flows) {
+	if (!dev->netdev_ops->ndo_flow_get_flows) {
 		dev_put(dev);
 		return -EOPNOTSUPP;
 	}
@@ -1288,7 +1288,7 @@ static int net_flow_table_cmd_flows(struct sk_buff *recv_skb,
 	if (cmd == NET_FLOW_TABLE_CMD_UPDATE_FLOWS)
 		goto out; /* TBD Update */
 
-	if (!dev->netdev_ops->ndo_flow_table_set_flows)
+	if (!dev->netdev_ops->ndo_flow_set_flows)
 		goto out;
 
 	if (!info->attrs[NET_FLOW_IDENTIFIER_TYPE] ||
@@ -1311,10 +1311,10 @@ static int net_flow_table_cmd_flows(struct sk_buff *recv_skb,
 
 		switch (cmd) {
 		case NET_FLOW_TABLE_CMD_SET_FLOWS:
-			err = dev->netdev_ops->ndo_flow_table_set_flows(dev, &this);
+			err = dev->netdev_ops->ndo_flow_set_flows(dev, &this);
 			break;
 		case NET_FLOW_TABLE_CMD_DEL_FLOWS:
-			err = dev->netdev_ops->ndo_flow_table_del_flows(dev, &this);
+			err = dev->netdev_ops->ndo_flow_del_flows(dev, &this);
 			break;
 		default:
 			err = -EOPNOTSUPP;

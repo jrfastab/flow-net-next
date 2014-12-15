@@ -8208,14 +8208,14 @@ static const struct net_device_ops ixgbe_netdev_ops = {
 	.ndo_dfwd_add_station	= ixgbe_fwd_add,
 	.ndo_dfwd_del_station	= ixgbe_fwd_del,
 
-	.ndo_flow_table_get_tables = ixgbe_flow_table_get_tables,
-	.ndo_flow_table_get_headers = ixgbe_flow_table_get_headers,
-	.ndo_flow_table_get_actions = ixgbe_flow_table_get_actions,
-	.ndo_flow_table_get_flows = ixgbe_flow_table_get_flows,
-	.ndo_flow_table_set_flows = ixgbe_flow_table_set_flows,
-	.ndo_flow_table_del_flows = ixgbe_flow_table_del_flows,
-	.ndo_flow_table_get_tbl_graph = ixgbe_flow_table_get_tbl_graph,
-	.ndo_flow_table_get_hdr_graph = ixgbe_flow_table_get_hdr_graph,
+	.ndo_flow_get_tables	= ixgbe_flow_table_get_tables,
+	.ndo_flow_get_headers	= ixgbe_flow_table_get_headers,
+	.ndo_flow_get_actions	= ixgbe_flow_table_get_actions,
+	.ndo_flow_get_flows	= ixgbe_flow_table_get_flows,
+	.ndo_flow_set_flows	= ixgbe_flow_table_set_flows,
+	.ndo_flow_del_flows	= ixgbe_flow_table_del_flows,
+	.ndo_flow_get_tbl_graph = ixgbe_flow_table_get_tbl_graph,
+	.ndo_flow_get_hdr_graph = ixgbe_flow_table_get_hdr_graph,
 };
 
 /**
