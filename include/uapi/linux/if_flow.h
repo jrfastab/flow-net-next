@@ -553,6 +553,7 @@ enum {
 
 #define NET_FLOW_TABLE_EGRESS_ROOT 1
 #define	NET_FLOW_TABLE_INGRESS_ROOT 2
+#define NET_FLOW_TABLE_DYNAMIC 4
 
 struct net_flow_table_graph_node {
 	int uid;
